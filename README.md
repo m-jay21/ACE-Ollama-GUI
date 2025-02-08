@@ -13,6 +13,7 @@
 ## Planned Features
 
 - **Model Installation**: Install new models straight from the UI.
+- **Prompt Modes**: Creating modes for studying, etc so a prompt is always added before your message such as "explain as though I am five years old".
 - **PDF Processing**: Upload and analyze PDFs.
 
 ## Installation
