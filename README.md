@@ -9,10 +9,10 @@
 - **Model Selection**: Easily switch between installed AI models.
 - **Local Execution**: Run models directly on your machine without an internet connection.
 - **Real-time Output**: Experience word-by-word output rendering for a natural, real-time effect.
+- **Command Line Interface (CLI) Mode**: Allows the user to switch into a mode where they can input commands, recommended: send commands such as "ollama pull <model_name>" to easily install a new model from the UI.
 
 ## Planned Features
 
-- **Model Installation**: Install new models straight from the UI.
 - **Prompt Modes**: Creating modes for studying, etc so a prompt is always added before your message such as "explain as though I am five years old".
 - **PDF Processing**: Upload and analyze PDFs.
 
