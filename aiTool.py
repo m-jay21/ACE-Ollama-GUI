@@ -75,7 +75,7 @@ def runCommand(text, word_callback, done_callback):
         done_callback()
         
     except FileNotFoundError:
-        word_callback("⚠️ Error: Ollama is not installed or not in PATH.")
+        word_callback("⚠️ Error: Command not possible.")
         done_callback()
     except Exception as e:
         word_callback(f"⚠️ Unexpected error: {e}")
