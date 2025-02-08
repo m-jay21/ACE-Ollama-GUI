@@ -70,6 +70,18 @@ def aiSubmission(text):
         daemon=True
     ).start()
 
+def commandSubmission(text):
+    #clears the preivous entry in the response box
+    response_textbox.configure(state="normal")
+    response_textbox.delete("1.0", "end")
+    response_textbox.configure(state="disabled")
+
+    threading.Thread(
+        target=aiTool.runCommand, 
+        args=(text, on_word_callback, on_done_callback), 
+        daemon=True
+    ).start()
+
 #keybindings
 def toggleFullscreen(event=None):
     current = app.attributes("-fullscreen")
@@ -81,8 +93,10 @@ def escapeFullscreen(event=None):
 def enterText(event=None):
     text = textbox.get("1.0", "end").strip()
     textbox.delete("1.0", "end")
-    if text:
+    if text and commandMode.get() == False:
         aiSubmission(text)
+    elif text and commandMode.get() == True:
+        commandSubmission(text)
 
 def newLine(event=None):
     textbox.insert("insert", "\n")
@@ -163,10 +177,16 @@ enter_button.grid(row=0, column=0, padx=10, pady=10)
 
 #pull the ai options
 aiOptions = aiTool.aiOptions()
-bottom_section = ctk.CTkFrame(bottom_left_box, border_width=2)
-bottom_section.grid(row=1, column=0, sticky="nsew")
-option_menu = ctk.CTkOptionMenu(bottom_section, values=aiOptions)
+middle_section = ctk.CTkFrame(bottom_left_box, border_width=2)
+middle_section.grid(row=1, column=0, sticky="nsew")
+option_menu = ctk.CTkOptionMenu(middle_section, values=aiOptions)
 option_menu.grid(row=0, column=0, padx=10, pady=10)
+
+bottom_section = ctk.CTkFrame(bottom_left_box, border_width=2)
+bottom_section.grid(row=2, column=0, sticky="nsew")
+commandMode = ctk.BooleanVar()
+checkbox = ctk.CTkCheckBox(bottom_section, text="Command Mode", variable=commandMode, font=bold_font)
+checkbox.grid(row=0, column=0, padx=10, pady=10, sticky="w")
 
 #start the app
 app.mainloop()
