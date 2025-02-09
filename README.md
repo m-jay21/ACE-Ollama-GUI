@@ -7,9 +7,10 @@
 ## Features
 
 - **Model Selection**: Easily switch between installed AI models.
+- **Install New Models**: Enter the name of any model that is compatible with Ollama in the settings tab and install it without the need for the terminal.
+- **Memory from previous chats in a session**: It has the capability to remember things you ask it during your session and chat.
 - **Local Execution**: Run models directly on your machine without an internet connection.
 - **Real-time Output**: Experience word-by-word output rendering for a natural, real-time effect.
-- **Command Line Interface (CLI) Mode**: Allows the user to switch into a mode where they can input commands, recommended: send commands such as "ollama pull <model_name>" to easily install a new model from the UI.
 
 ## Planned Features
 
@@ -22,7 +23,7 @@
 
 - Python **3.8** or later
 - `pip` package manager
-- Installed version of **Ollama** (with locally installed AI models)
+- Ollama Python API/Library using `pip install ollama`
 
 ### Current Ollama Requirements
 
@@ -40,10 +41,16 @@ Currently, you must install Ollama manually from [Ollama's official website](htt
    python ui.py
    ```
 
+## Images
+
+![Screenshot](images/image1.png)
+![Screenshot](images/image2.png)
+![Screenshot](images/image3.png)
+
 ## Usage
 
 1. Launch the GUI.
-2. Select an installed model.
+2. Select an installed model or install a new model.
 3. Enter prompts and receive real-time responses.
 
 ## Contributing

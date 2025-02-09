@@ -80,12 +80,7 @@
     "dropdown_text_color": ["#1d3045", "#c2e7f5"],
     "border_color": ["#FFFFFF", "#FFFFFF"],
     "corner_radius": 10,
-    "border_width": 2,
-    "font": {
-      "family": "Lora",
-      "size": 14,
-      "weight": "normal"
-    }
+    "border_width": 2
   },
   "DropdownMenu": {
     "fg_color": ["#c2e7f5", "#1d3045"],
@@ -114,5 +109,31 @@
         "size": 14,
         "weight": "normal"
       }
+    },
+    "CTkTabview": {
+        "fg_color": ["#121b26"],
+        "border_color": ["#FFFFFF", "#FFFFFF"],
+        "border_width": 2,
+        "corner_radius": 10
+    },
+    "CTkSegmentedButton": {
+    "fg_color": ["#5f849e", "#5f849e"],
+    "selected_color": ["#1d3045", "#1d3045"],
+    "unselected_color": ["#c2e7f5", "#1d3045"],
+    "selected_hover_color": ["#121b26", "#121b26"],
+    "unselected_hover_color": ["#5f849e", "#5f849e"],
+    "text_color": ["#FFFFFF", "#FFFFFF"],
+    "text_color_disabled": ["#808080", "#808080"],
+    "border_color": ["#FFFFFF", "#FFFFFF"],
+    "border_width": 2,
+    "corner_radius": 10
+    },
+    "CTkEntry": {
+    "fg_color": ["#c2e7f5", "#1d3045"], 
+    "text_color": ["#1d3045", "#c2e7f5"],  
+    "placeholder_text_color": ["#808080", "#808080"],
+    "border_color": ["#5f849e", "#5f849e"], 
+    "corner_radius": 10, 
+    "border_width": 2
     }
 }

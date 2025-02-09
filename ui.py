@@ -3,6 +3,7 @@ import customtkinter as ctk
 from PIL import Image
 from queue import Queue
 import aiTool
+import time
 
 #application and ui setup
 app = ctk.CTk()
@@ -20,67 +21,41 @@ try:
 except Exception as e:
     print("Icon load error:", e)
 ctk.set_default_color_theme("theme.json")
-
+ctk.set_appearance_mode("Dark")
 
 output_queue = Queue()
 
-def update_ui_from_queue():
-    #removes test from the queue and puts it into the response box
-    while not output_queue.empty():
-        text_fragment = output_queue.get()
-        response_textbox.configure(state="normal")
-        response_textbox.insert("end", text_fragment)
-        response_textbox.configure(state="disabled")
-        response_textbox.yview_moveto(1.0)
-        response_textbox.update_idletasks() 
-    app.after(100, update_ui_from_queue)
+def update_response(word):
+    response_textbox.configure(state="normal")
+    response_textbox.insert("end", word)
+    response_textbox.configure(state="disabled")
+    response_textbox.yview_moveto(1.0)
 
-#updates the ui every so often
-app.after(100, update_ui_from_queue)
-
-#callback functions
-def on_word_callback(text_fragment):
-    print(f"Debug: Adding to queue -> {repr(text_fragment)}")
-    #pushes text into queue
-    output_queue.put(text_fragment)
-
-def on_done_callback():
-    #turns on the textbox and enter button when the ai is done
-    app.after(0, lambda: (
-        textbox.configure(state="normal"),
+def reactivate():
+    #turns on the textbox and enter button when the AI is done
+    def enable_inputs():
+        textbox.configure(state="normal")
         enter_button.configure(state="normal")
-    ))
+    
+    app.after(0, enable_inputs)
 
 #ai submission handling
 def aiSubmission(text):
     model = option_menu.get()
-    #turns off the textbox and enter button
     textbox.configure(state="disabled")
     enter_button.configure(state="disabled")
     
-    #clears the preivous entry in the response box
-    response_textbox.configure(state="normal")
-    response_textbox.delete("1.0", "end")
-    response_textbox.configure(state="disabled")
-    
-    #lauches the ai tool
-    threading.Thread(
-        target=aiTool.runData, 
-        args=(text, model, on_word_callback, on_done_callback), 
-        daemon=True
-    ).start()
-
-def commandSubmission(text):
-    #clears the preivous entry in the response box
     response_textbox.configure(state="normal")
     response_textbox.delete("1.0", "end")
     response_textbox.configure(state="disabled")
 
-    threading.Thread(
-        target=aiTool.runCommand, 
-        args=(text, on_word_callback, on_done_callback), 
-        daemon=True
-    ).start()
+    def run_ai():
+        for word in aiTool.runData(text, model):
+            app.after(0, lambda: update_response(word))  
+            time.sleep(0.05)
+        app.after(0, reactivate)
+
+    threading.Thread(target=run_ai, daemon=True).start()
 
 #keybindings
 def toggleFullscreen(event=None):
@@ -90,13 +65,26 @@ def toggleFullscreen(event=None):
 def escapeFullscreen(event=None):
     app.attributes("-fullscreen", False)
 
+responseDown = ""
+
+def enterDownload(event=None):
+    text = modelDown.get().strip()
+    modelDown.delete(0, "end") 
+    if text:
+        responseDown = aiTool.downloadModel(text)
+
+    download_button.configure(state="disabled")
+    downloadedResponse.configure(state="normal")
+    downloadedResponse.delete("1.0", "end")
+    downloadedResponse.insert("end", responseDown)
+    downloadedResponse.configure(state="disabled")
+    download_button.configure(state="normal")
+
 def enterText(event=None):
     text = textbox.get("1.0", "end").strip()
     textbox.delete("1.0", "end")
-    if text and commandMode.get() == False:
+    if text:
         aiSubmission(text)
-    elif text and commandMode.get() == True:
-        commandSubmission(text)
 
 def newLine(event=None):
     textbox.insert("insert", "\n")
@@ -140,14 +128,21 @@ app.bind("<Control-Shift-Left>", select_previous_word)
 app.bind("<Control-Shift-Right>", select_next_word)
 
 #configure grid rows and columns.
-app.grid_rowconfigure(0, weight=0)   #top logo
-app.grid_rowconfigure(1, weight=3)   #response box area
-app.grid_rowconfigure(2, weight=1)   #input area
-app.grid_columnconfigure(0, weight=1)
-app.grid_columnconfigure(1, weight=0)
+tabview = ctk.CTkTabview(app)
+tabview.pack(expand=True, fill="both", padx=20, pady=20)
+tabview.configure(fg_color="#121b26")
+
+#main tab
+aiTab = tabview.add("Main Tab")
+
+aiTab.grid_rowconfigure(0, weight=0)   #top logo
+aiTab.grid_rowconfigure(1, weight=3)   #response box area
+aiTab.grid_rowconfigure(2, weight=1)   #input area
+aiTab.grid_columnconfigure(0, weight=1)
+aiTab.grid_columnconfigure(1, weight=0)
 
 #logo box
-top_box = ctk.CTkFrame(app, border_width=2)
+top_box = ctk.CTkFrame(aiTab, border_width=2)
 top_box.grid(row=0, column=0, columnspan=2, sticky="nsew")
 try:
     logo_image = ctk.CTkImage(light_image=Image.open("logo2.png"), size=(100, 100))
@@ -157,16 +152,16 @@ except Exception as e:
     print("Logo load error:", e)
 
 #response box area
-response_textbox = ctk.CTkTextbox(app, wrap="word", state="disabled", border_width=0, padx=20)
+response_textbox = ctk.CTkTextbox(aiTab, wrap="word", state="disabled", border_width=0, padx=20)
 response_textbox.configure(fg_color="#121b26")
 response_textbox.configure(corner_radius=0)
 response_textbox.grid(row=1, column=0, columnspan=2, sticky="nsew")
 
 #textbox area
-textbox = ctk.CTkTextbox(app, border_width=2, padx=10, pady=10)
+textbox = ctk.CTkTextbox(aiTab, border_width=2, padx=10, pady=10)
 textbox.grid(row=2, column=0, sticky="nsew")
 
-bottom_left_box = ctk.CTkFrame(app, border_width=2)
+bottom_left_box = ctk.CTkFrame(aiTab, border_width=2)
 bottom_left_box.grid(row=2, column=1, sticky="nsew")
 
 #enter button and ai options
@@ -182,11 +177,43 @@ middle_section.grid(row=1, column=0, sticky="nsew")
 option_menu = ctk.CTkOptionMenu(middle_section, values=aiOptions)
 option_menu.grid(row=0, column=0, padx=10, pady=10)
 
-bottom_section = ctk.CTkFrame(bottom_left_box, border_width=2)
-bottom_section.grid(row=2, column=0, sticky="nsew")
-commandMode = ctk.BooleanVar()
-checkbox = ctk.CTkCheckBox(bottom_section, text="Command Mode", variable=commandMode, font=bold_font)
-checkbox.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+
+#setting the background colors
+app.configure(fg_color="#121b26")
+
+tabview.configure(fg_color="#121b26")
+
+#set individual frame backgrounds
+top_box.configure(fg_color="#121b26")
+bottom_left_box.configure(fg_color="#121b26")
+
+#settings tab
+settingsTab = tabview.add("Settings")
+
+#columns formation
+settingsTab.grid_columnconfigure(0, weight=1)
+settingsTab.grid_columnconfigure(1, weight=1)
+
+#message explaining everything
+messageD = ctk.CTkLabel(settingsTab, text="Download any model compatible with Ollama:", font=bold_font)
+messageD.grid(row=0, column=0, columnspan=2, pady=10)
+
+#frame for the textbox and button
+entry_button_frame = ctk.CTkFrame(settingsTab)
+entry_button_frame.grid(row=1, column=0, columnspan=2, pady=10)
+
+#text box to enter model name
+modelDown = ctk.CTkEntry(entry_button_frame, placeholder_text="Model Name")
+modelDown.grid(row=1, column=0, padx=(0, 10)) 
+
+#download button
+download_button = ctk.CTkButton(entry_button_frame, text="Download", font=bold_font, command=enterDownload)
+download_button.grid(row=1, column=1)
+
+#response after downloading
+downloadedResponse = ctk.CTkTextbox(entry_button_frame, state="disabled", border_width=0, font=bold_font)
+downloadedResponse.grid(row=2, column=0, columnspan=2, pady=10)
+downloadedResponse.configure(fg_color="#121b26")
 
 #start the app
 app.mainloop()

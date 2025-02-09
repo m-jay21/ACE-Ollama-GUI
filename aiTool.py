@@ -2,16 +2,17 @@ import subprocess
 import re
 import time
 import sys
-import msvcrt
+import ollama
+
+theMessages = [
+
+]
 
 def aiOptions():
-    #retrieves all the models already installed
-    command = "ollama list"
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    
-    lines = result.stdout.strip().split("\n")
-    #give only the model names and skip the headers, etc
-    return [line.split()[0] for line in lines[1:]] if len(lines) > 1 else []
+    response = ollama.list()
+
+    model_names = [model.model for model in response.models]
+    return(model_names)
 
 def cleanAnsi(text):
     #removes any ansi characters and spinning values that ollama outputs
@@ -23,119 +24,26 @@ def cleanAnsi(text):
     text = re.sub(r'([.!?])([A-Za-z])', r'\1 \2', text)
     return text
 
-def runCommand(text, word_callback, done_callback):
+def downloadModel(text):
+    if text in aiOptions():
+        return "Already Installed"
     try:
-        process = subprocess.Popen(
-            text,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            bufsize=0
-        )
-
-        #send the input text and close stdin
-        process.stdin.write(text + "\n")
-        process.stdin.flush()
-        process.stdin.close()
-
-        word_buffer = ""
-
-        while True:
-            char = process.stdout.read(1)  #read one character at a time
-
-            if not char:
-                time.sleep(2)
-                if process.poll() is not None:  #process has finished
-                    break
-                time.sleep(2)  #avoid busy-waiting if no output is available
-                continue
-
-            cleaned_char = cleanAnsi(char)
-
-            if cleaned_char in " \n":  #a word has completed
-                if word_buffer:
-                    word_callback(word_buffer + cleaned_char)
-                    word_buffer = ""
-                else:
-                    word_callback(cleaned_char)
-            else:
-                word_buffer += cleaned_char  #build up the word
-
-
-                sys.stdout.flush()  #ensure immediate display
-
-            if process.poll() is not None and not word_buffer:
-                break  #stop when process is fully done
-
-        if word_buffer:
-            word_callback(word_buffer)  #send any remaining word
-
-        done_callback()
-        
-    except FileNotFoundError:
-        word_callback("⚠️ Error: Command not possible.")
-        done_callback()
+        ollama.pull(text)
     except Exception as e:
-        word_callback(f"⚠️ Unexpected error: {e}")
-        done_callback()
+        return "Cannot be installed"
+    
+    return "Installed"
 
+def runData(text, model):
+    theMessages.append({'role': 'user', 'content': text})
+    stream = ollama.chat(model=model, messages=theMessages, stream=True)
 
-def runData(text, model, word_callback, done_callback):
-    try:
-        process = subprocess.Popen(
-            ["ollama", "run", model],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            bufsize=0
-        )
+    full_response = ""
+    last_was_word = False  # Track if the last yielded item was a word (to handle spacing properly)
 
-        #send the input text and close stdin
-        process.stdin.write(text + "\n")
-        process.stdin.flush()
-        process.stdin.close()
-
-        word_buffer = ""
-
-        while True:
-            char = process.stdout.read(1)  #read one character at a time
-
-            if not char:
-                time.sleep(2)
-                if process.poll() is not None:  #process has finished
-                    break
-                time.sleep(2)  #avoid busy-waiting if no output is available
-                continue
-
-            cleaned_char = cleanAnsi(char)
-
-            if cleaned_char in " \n":  #a word has completed
-                if word_buffer:
-                    word_callback(word_buffer + cleaned_char)
-                    word_buffer = ""
-                else:
-                    word_callback(cleaned_char)
-            else:
-                word_buffer += cleaned_char  #build up the word
-
-
-                sys.stdout.flush()  #ensure immediate display
-
-            if process.poll() is not None and not word_buffer:
-                break  #stop when process is fully done
-
-        if word_buffer:
-            word_callback(word_buffer)  #send any remaining word
-
-        done_callback()
-
-    except FileNotFoundError:
-        word_callback("⚠️ Error: Ollama is not installed or not in PATH.")
-        done_callback()
-    except Exception as e:
-        word_callback(f"⚠️ Unexpected error: {e}")
-        done_callback()
+    for chunk in stream:
+        word = chunk.get('message', {}).get('content', '')
+        full_response = full_response + word
+        yield word
+            
+    theMessages.append({'role': 'assistant', 'content': full_response})
