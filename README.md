@@ -14,6 +14,7 @@
 
 ## Planned Features
 
+- **Shows Previous Messages and Responses**
 - **Prompt Modes**: Creating modes for studying, etc so a prompt is always added before your message such as "explain as though I am five years old".
 - **PDF Processing**: Upload and analyze PDFs.
 
