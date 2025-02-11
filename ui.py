@@ -217,3 +217,8 @@ downloadedResponse.configure(fg_color="#121b26")
 
 #start the app
 app.mainloop()
+
+#empty out text file
+with open("theMessages.txt", "w") as file:
+    file.write("")
+

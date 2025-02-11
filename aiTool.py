@@ -3,10 +3,8 @@ import re
 import time
 import sys
 import ollama
+import json
 
-theMessages = [
-
-]
 
 def aiOptions():
     response = ollama.list()
@@ -35,15 +33,25 @@ def downloadModel(text):
     return "Installed"
 
 def runData(text, model):
-    theMessages.append({'role': 'user', 'content': text})
+    #append user message
+    with open("theMessages.txt", 'a') as file:
+        file.write(json.dumps({"role": "user", "content": text}) + "\n")
+
+    #open the file for reading
+    with open("theMessages.txt", 'r') as file:
+        lines = file.readlines() 
+        theMessages = [json.loads(line.strip()) for line in lines if line.strip()]  #convert JSON strings to dicts
+
+    #send messages to Ollama
     stream = ollama.chat(model=model, messages=theMessages, stream=True)
 
     full_response = ""
-    last_was_word = False  # Track if the last yielded item was a word (to handle spacing properly)
 
     for chunk in stream:
         word = chunk.get('message', {}).get('content', '')
-        full_response = full_response + word
-        yield word
-            
-    theMessages.append({'role': 'assistant', 'content': full_response})
+        full_response += word
+        yield word  #yield word-by-word
+
+    #append assistant response properly
+    with open("theMessages.txt", 'a') as file:
+        file.write(json.dumps({"role": "assistant", "content": full_response}) + "\n")
