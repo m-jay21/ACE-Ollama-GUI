@@ -44,9 +44,20 @@ def aiSubmission(text):
     model = option_menu.get()
     textbox.configure(state="disabled")
     enter_button.configure(state="disabled")
+
+    #tags for textbox
+    response_textbox.tag_config("right", justify="right")
+    response_textbox.tag_config("left", justify="left")
     
+    #shows users response
     response_textbox.configure(state="normal")
-    response_textbox.delete("1.0", "end")
+    response_textbox.insert("end", "\n")
+    response_textbox.insert("end", "\n")
+    response_textbox.insert("end", "\n")
+    response_textbox.insert("end", text, ("right")) 
+    response_textbox.insert("end", "\n")
+    response_textbox.insert("end", "\n")
+    response_textbox.insert("end", "\n")
     response_textbox.configure(state="disabled")
 
     def run_ai():
@@ -81,6 +92,7 @@ def enterDownload(event=None):
     download_button.configure(state="normal")
 
 def enterText(event=None):
+    response_textbox.yview_moveto(1.0)
     text = textbox.get("1.0", "end").strip()
     textbox.delete("1.0", "end")
     if text:
