@@ -1,10 +1,7 @@
-import subprocess
 import re
-import time
-import sys
 import ollama
 import json
-
+import tiktoken
 
 def aiOptions():
     response = ollama.list()
@@ -32,6 +29,26 @@ def downloadModel(text):
     
     return "Installed"
 
+#estimate tokens in a list of messages
+def estimate_tokens(message):
+    enc = tiktoken.get_encoding("cl100k_base")
+    total_tokens = sum(len(enc.encode(msg["content"])) for msg in message)
+    return total_tokens
+
+#calculate num_ctx
+def get_dynamic_num_ctx(message):
+    token_count = estimate_tokens(message)
+
+    if token_count <= 2048:
+        return 2048
+    elif token_count <= 4096:
+        return 4096
+    elif token_count <= 8192:
+        return 8192
+    else:
+        print("Input exceeds max limit.")
+        return 8192  #max possible limit
+
 def runData(text, model):
     #append user message
     with open("theMessages.txt", 'a') as file:
@@ -42,8 +59,10 @@ def runData(text, model):
         lines = file.readlines() 
         theMessages = [json.loads(line.strip()) for line in lines if line.strip()]  #convert JSON strings to dicts
 
+    num_ctx = get_dynamic_num_ctx(theMessages)
+
     #send messages to Ollama
-    stream = ollama.chat(model=model, messages=theMessages, stream=True)
+    stream = ollama.chat(model=model, messages=theMessages, stream=True, options={"num_ctx": num_ctx})
 
     full_response = ""
 

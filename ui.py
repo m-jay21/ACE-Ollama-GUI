@@ -1,8 +1,9 @@
 import threading
 import customtkinter as ctk
+from tkinter import filedialog
 from PIL import Image
-from queue import Queue
 import aiTool
+import pdfTool
 import time
 
 #application and ui setup
@@ -14,7 +15,7 @@ normal_font = ctk.CTkFont(family="Arial", size=14)
 bold_font = ctk.CTkFont(family="Arial", size=14, weight="bold")
 
 #window settings
-app.geometry("800x625")
+app.geometry("960x885")
 app.resizable(True, True)
 try:
     app.iconbitmap("logo2.ico")
@@ -23,7 +24,15 @@ except Exception as e:
 ctk.set_default_color_theme("theme.json")
 ctk.set_appearance_mode("Dark")
 
-output_queue = Queue()
+pdf_text = ""
+
+def upload_file():
+    global pdf_text
+    filepath = filedialog.askopenfilename(title="Select a PDF", filetypes=[("PDF Files", "*.pdf")])
+    if filepath: 
+        pdf_text = pdfTool.extract_text_from_pdf(filepath)
+    else:
+        print("No file selected.")
 
 def update_response(word):
     response_textbox.configure(state="normal")
@@ -41,6 +50,7 @@ def reactivate():
 
 #ai submission handling
 def aiSubmission(text):
+    global pdf_text
     model = option_menu.get()
     textbox.configure(state="disabled")
     enter_button.configure(state="disabled")
@@ -60,6 +70,9 @@ def aiSubmission(text):
     response_textbox.insert("end", "\n")
     response_textbox.configure(state="disabled")
 
+    if pdf_text != "":
+        text = "PDF TEXT:\n" + "\n" + pdf_text + "\n" + "USER QUERY:\n" + "\n" + text 
+
     def run_ai():
         for word in aiTool.runData(text, model):
             app.after(0, lambda: update_response(word))  
@@ -67,6 +80,7 @@ def aiSubmission(text):
         app.after(0, reactivate)
 
     threading.Thread(target=run_ai, daemon=True).start()
+    pdf_text = ""
 
 #keybindings
 def toggleFullscreen(event=None):
@@ -189,6 +203,24 @@ middle_section.grid(row=1, column=0, sticky="nsew")
 option_menu = ctk.CTkOptionMenu(middle_section, values=aiOptions)
 option_menu.grid(row=0, column=0, padx=10, pady=10)
 
+#icon image
+icon_image = ctk.CTkImage(light_image=Image.open("up-loading.ico"), dark_image=Image.open("up-loading.ico"), size=(20,20))
+
+bottom_section = ctk.CTkFrame(bottom_left_box, border_width=2)
+bottom_section.grid(row=2, column=0, sticky="nsew")
+
+#upload file button
+upload_btn = ctk.CTkButton(
+    bottom_section, 
+    text="",  
+    command=upload_file, 
+    image=icon_image,
+    width=20,  
+    height=20,
+    corner_radius=30 
+)
+
+upload_btn.grid(row=0, column=0, padx=10, pady=10)  
 
 #setting the background colors
 app.configure(fg_color="#121b26")
