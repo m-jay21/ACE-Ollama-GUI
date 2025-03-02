@@ -9,7 +9,6 @@ def aiOptions():
     model_names = [model["model"] for model in response["models"]]
     return model_names
 
-
 def cleanAnsi(text):
     #removes any ansi characters and spinning values that ollama outputs
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')

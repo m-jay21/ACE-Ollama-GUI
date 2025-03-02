@@ -6,18 +6,19 @@
 
 ## Features
 
+- **PDF Processing**: Upload and analyze PDFs.
+- **Image Processing**: Upload and analyze images.
 - **Model Selection**: Easily switch between installed AI models.
 - **Install New Models**: Enter the name of any model that is compatible with Ollama in the settings tab and install it without the need for the terminal.
 - **Memory from previous chats in a session**: It has the capability to remember things you ask it during your session and chat.
 - **Local Execution**: Run models directly on your machine without an internet connection.
 - **Real-time Output**: Experience word-by-word output rendering for a natural, real-time effect.
-- **PDF Processing**: Upload and analyze PDFs.
 
 ## Planned Features
 
-- **Shows Previous Messages and Responses**
-- **Image Processing**: Upload and analyze images.
 - **Prompt Modes**: Creating modes for studying, etc so a prompt is always added before your message such as "explain as though I am five years old".
+- Create the ability to remove and delete models
+- **Encryption tool**: Using a password given by user the messages from the user and model which are stored locally can be encrypted using something like AES-256 methods.
 
 ## Installation
 
