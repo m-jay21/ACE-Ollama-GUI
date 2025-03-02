@@ -11,12 +11,13 @@
 - **Memory from previous chats in a session**: It has the capability to remember things you ask it during your session and chat.
 - **Local Execution**: Run models directly on your machine without an internet connection.
 - **Real-time Output**: Experience word-by-word output rendering for a natural, real-time effect.
+- **PDF Processing**: Upload and analyze PDFs.
 
 ## Planned Features
 
 - **Shows Previous Messages and Responses**
+- **Image Processing**: Upload and analyze images.
 - **Prompt Modes**: Creating modes for studying, etc so a prompt is always added before your message such as "explain as though I am five years old".
-- **PDF Processing**: Upload and analyze PDFs.
 
 ## Installation
 
