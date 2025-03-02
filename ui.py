@@ -5,6 +5,7 @@ from PIL import Image
 import aiTool
 import pdfTool
 import time
+import os
 
 #application and ui setup
 app = ctk.CTk()
@@ -25,12 +26,26 @@ ctk.set_default_color_theme("theme.json")
 ctk.set_appearance_mode("Dark")
 
 pdf_text = ""
+image_path = ""
 
 def upload_file():
-    global pdf_text
-    filepath = filedialog.askopenfilename(title="Select a PDF", filetypes=[("PDF Files", "*.pdf")])
-    if filepath: 
-        pdf_text = pdfTool.extract_text_from_pdf(filepath)
+    global pdf_text, image_path
+    filepath = filedialog.askopenfilename(
+    title="Select a PDF or Image",
+    filetypes=[
+        ("PDF Files", "*.pdf"),
+        ("Image Files", "*.png;*.jpg;*.jpeg;*.bmp;*.gif"),
+        ("All Files", "*.*")
+    ])
+    if filepath:
+        _, file_extension = os.path.splitext(filepath)
+        file_extension = file_extension.lower()
+        if file_extension == ".pdf":
+            pdf_text = pdfTool.extract_text_from_pdf(filepath)
+        elif file_extension in [".png", ".jpg", ".jpeg", ".bmp", ".gif"]:
+            image_path = filepath
+        else:
+            print("Unsupported file type selected.")
     else:
         print("No file selected.")
 
@@ -50,7 +65,7 @@ def reactivate():
 
 #ai submission handling
 def aiSubmission(text):
-    global pdf_text
+    global pdf_text, image_path
     model = option_menu.get()
     textbox.configure(state="disabled")
     enter_button.configure(state="disabled")
@@ -71,7 +86,16 @@ def aiSubmission(text):
     response_textbox.configure(state="disabled")
 
     if pdf_text != "":
-        text = "PDF TEXT:\n" + "\n" + pdf_text + "\n" + "USER QUERY:\n" + "\n" + text 
+        text = "PDF TEXT:\n" + "\n" + pdf_text + "\n" + "USER QUERY:\n" + "\n" + text
+    elif image_path != "":
+        def run_aiImage():
+            for word in aiTool.runImage(text, image_path):
+                app.after(0, lambda: update_response(word))  
+                time.sleep(0.05)
+            app.after(0, reactivate)
+
+        threading.Thread(target=run_aiImage, daemon=True).start()
+        return
 
     def run_ai():
         for word in aiTool.runData(text, model):
@@ -81,6 +105,7 @@ def aiSubmission(text):
 
     threading.Thread(target=run_ai, daemon=True).start()
     pdf_text = ""
+    image_path = ""
 
 #keybindings
 def toggleFullscreen(event=None):
