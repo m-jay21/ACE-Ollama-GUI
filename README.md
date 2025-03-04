@@ -28,10 +28,6 @@
 - `pip` package manager
 - Ollama Python API/Library using `pip install ollama`
 
-### Current Ollama Requirements
-
-Currently, you must install Ollama manually from [Ollama's official website](https://ollama.com) and install models using the command prompt. A future update will allow users to install models directly from the UI if an internet connection is present.
-
 ### Steps
 
 1. Clone the repository:
