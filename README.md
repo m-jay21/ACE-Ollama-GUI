@@ -1,78 +1,124 @@
-# ACE (Ollama GUI for Windows)
+# **ACE (Ollama GUI for Windows)**
 
-## Overview
-
+## **Overview**
 **ACE** is a graphical user interface (GUI) for **Ollama**, designed to eliminate the need for command-line usage. This project provides an intuitive interface for users to interact with locally installed AI models.
 
-## Features
-
+## **Features**
 - **PDF Processing**: Upload and analyze PDFs.
 - **Image Processing**: Upload and analyze images.
 - **Model Selection**: Easily switch between installed AI models.
-- **Install New Models**: Enter the name of any model that is compatible with Ollama in the settings tab and install it without the need for the terminal.
-- **Memory from previous chats in a session**: It has the capability to remember things you ask it during your session and chat.
+- **Install New Models**: Install compatible Ollama models directly from the UI.
+- **Session Memory**: Remembers context within a session for a continuous conversation.
 - **Local Execution**: Run models directly on your machine without an internet connection.
-- **Real-time Output**: Experience word-by-word output rendering for a natural, real-time effect.
+- **Real-time Output**: Word-by-word rendering for a natural, real-time effect.
 
-## Planned Features
+## **Planned Features**
+- **Prompt Modes**: Predefined modes (e.g., “Explain like I’m five”) for different use cases.
+- **Model Management**: Ability to remove and delete installed models.
+- **Encryption Tool**: Secure message history using AES-256 encryption with a user-provided password.
 
-- **Prompt Modes**: Creating modes for studying, etc so a prompt is always added before your message such as "explain as though I am five years old".
-- Create the ability to remove and delete models
-- **Encryption tool**: Using a password given by user the messages from the user and model which are stored locally can be encrypted using something like AES-256 methods.
+---
 
-## Installation
+## **Installation**
 
-### Requirements
+### **Requirements**
+- **Python**: Version **3.8** or later
+- **Ollama**: Must be installed and running.
 
-- Python **3.8** or later
-- `pip` package manager
-- Ollama Python API/Library using `pip install ollama`
+### **Install Dependencies**
+Run the following command:
 
-### Current Ollama Requirements
+```sh
+pip install ollama pymupdf customtkinter pillow tiktoken
+```
 
-Currently, you must install Ollama manually from [Ollama's official website](https://ollama.com) and install models using the command prompt. A future update will allow users to install models directly from the UI if an internet connection is present.
+### **Additional Dependencies**
+- **tkinter** (Pre-installed with Python but ensure availability)
+- **threading** and **time** (Standard Python libraries)
 
-### Steps
+### **External Files Required**
+- **Theme File:** `theme.json` (For UI styling)
+- **Icons/Images:**  
+  - `logo2.ico` (Application icon)  
+  - `up-loading.ico` (Upload button icon)  
+  - `logo2.png` (Displayed in the UI)
+- **Message Storage:** `theMessages.txt` (Stores conversation history)
 
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/m-jay21/ACE-Ollama-GUI.git
-   ```
+### **Ollama Models**
+- Users must have **Ollama installed and running**.
+- Install at least **one AI model** compatible with Ollama.
+- The **"llava:latest"** model is required for image processing.
 
-2. Run the application:
-   ```sh
-   python ui.py
-   ```
+### **Operating System Compatibility**
+- Works on **Windows, macOS, and Linux** (as long as Python and required dependencies are installed).
 
-## Images
+---
 
-![Screenshot](images/image1.png)
-![Screenshot](images/image2.png)
-![Screenshot](images/image3.png)
+## **Setup & Running the Application**
+### **1. Clone the repository**
+```sh
+git clone https://github.com/m-jay21/ACE-Ollama-GUI.git
+cd ACE-Ollama-GUI
+```
 
-## Usage
+### **2. Create a Virtual Environment (Recommended)**
+```sh
+python -m venv env
+source env/bin/activate   # On macOS/Linux
+env\Scripts\activate      # On Windows
+```
 
-1. Launch the GUI.
-2. Select an installed model or install a new model.
-3. Enter prompts and receive real-time responses.
+### **3. Install Dependencies**
+```sh
+pip install -r requirements.txt
+```
 
-## Contributing
+### **4. Start Ollama (if not running)**
+```sh
+ollama serve
+```
 
+### **5. Run the GUI**
+```sh
+python ui.py
+```
+
+---
+
+## **Usage**
+1. **Launch ACE** by running `python ui.py`.
+2. **Select an installed AI model** or install a new one from the **Settings** tab.
+3. **Upload PDFs or images** for processing.
+4. **Enter prompts** and receive real-time responses.
+
+---
+
+## **Screenshots**
+![Screenshot](images/image1.png)  
+![Screenshot](images/image2.png)  
+![Screenshot](images/image3.png)  
+
+---
+
+## **Contributing**
 Contributions are welcome! To contribute:
 
-1. Fork the repository.
-2. Create a new branch for your feature/fix.
-3. Commit and push your changes.
-4. Submit a pull request.
+1. **Fork** the repository.
+2. **Create a new branch** for your feature/fix.
+3. **Commit and push** your changes.
+4. **Submit a pull request**.
 
-## Issues
+---
 
+## **Issues & Support**
 If you encounter any issues, feel free to open an issue on GitHub.
 
-## License
+---
 
+## **License**
 This project is licensed under the **MIT License**.
 
-## Need Help?
+---
 
-Reach out through **GitHub Discussions**.
+## **Need Help?**
+Reach out via **GitHub Discussions**.
