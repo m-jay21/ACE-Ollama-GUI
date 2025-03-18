@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ACE AI</title>
+  <style>
+    @font-face {
+      font-family: 'AlbraBlack';
+      src: url('FontsFree-Net-AlbraBlack.tff') format('truetype');
+    }
+
+    :root {
+      --color-dark: #2E424D;        /* Main dark background */
+      --color-dark-darker: #24343C; /* Slightly darker version of #2E424D */
+
+      /* Light text and its partial opacities */
+      --color-light: #f5eded;
+      --color-light-rgba-15: rgba(245, 237, 237, 0.15);
+      --color-light-rgba-05: rgba(245, 237, 237, 0.05);
+      --color-light-shadow: rgba(245, 237, 237, 0.5);
+    }
+
+
+    /* Base Styles */
+    body {
+      margin: 0;
+      font-family: 'Montserrat', Arial, sans-serif;
+      background-color: var(--color-dark); /* Dark background */
+      color: var(--color-light);           /* Light text */
+      height: 100vh;
+      overflow: hidden;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* Settings/Chat Toggle Button in top-right corner */
+    .tabs {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+    }
+    .settings-button {
+      background-color: var(--color-light); /* Light background for contrast */
+      color: var(--color-dark);             /* Dark text on button */
+      padding: 10px 15px;
+      font-size: 16px;
+      border: 2px solid var(--color-light);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .settings-button:hover {
+      transform: scale(1.05);
+      box-shadow: 0px 4px 8px var(--color-light-shadow);
+    }
+    .settings-button.active {
+      background-color: var(--color-dark);
+      color: var(--color-light);
+      border: 2px solid var(--color-light);
+    }
+
+    /* Content Area */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: var(--color-dark);
+      padding: 20px;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    /* Main Tab */
+    #main-tab {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 10px 0;
+      font-size: 100px;
+      font-family: 'AlbraBlack';
+      color: var(--color-light);
+
+      /* Simulate an outline by applying shadows on all sides */
+      text-shadow:
+        -2.5px -2.5px 0 #24343C,
+        2.5px -2.5px 0 #24343C,
+        -2.5px  2.5px 0 #24343C,
+        2.5px  2.5px 0 #24343C;
+    }
+    .chat-window {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      background-color: var(--color-dark);
+      color: var(--color-light);
+      display: flex;
+      flex-direction: column;
+      white-space: pre-wrap;
+      scroll-behavior: smooth;
+    }
+
+    /* Messages tinted with partial opacity of the “light” color */
+    .message {
+      margin: 12px 0;
+      max-width: 80%;
+      padding: 10px;
+      border-radius: 10px;
+      word-wrap: break-word;
+    }
+    .user-message {
+      background-color: var(--color-light-rgba-15);
+      align-self: flex-end;
+      text-align: right;
+    }
+    .ai-message {
+      background-color: var(--color-light-rgba-05);
+      align-self: flex-start;
+      text-align: left;
+    }
+
+    /* Input Area */
+    .input-area {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    #query-input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      background-color: var(--color-dark-darker); /* Slightly darker background for input */
+      color: var(--color-light);
+      border: 1px solid var(--color-light);
+      border-radius: 4px;
+      resize: none;
+    }
+
+    /* Submit Button: Up Arrow */
+    #submit-button {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid var(--color-light);
+      background-color: var(--color-light);
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    #submit-button::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 10px solid var(--color-dark);
+    }
+    #submit-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0px 4px 8px var(--color-light-shadow);
+    }
+
+    /* Model Selector */
+    #model-select {
+      background-color: var(--color-dark-darker);
+      color: var(--color-light);
+      border: 1px solid var(--color-light);
+      border-radius: 4px;
+      font-size: 16px;
+      padding: 10px;
+      width: 150px;
+    }
+
+    /* Upload Button: Plus Sign */
+    #upload-button {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid var(--color-light);
+      background-color: var(--color-dark);
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    #upload-button::before,
+    #upload-button::after {
+      content: "";
+      position: absolute;
+      background-color: var(--color-light);
+    }
+    #upload-button::before {
+      top: 50%;
+      left: 50%;
+      width: 16px;
+      height: 2px;
+      transform: translate(-50%, -50%);
+    }
+    #upload-button::after {
+      top: 50%;
+      left: 50%;
+      width: 2px;
+      height: 16px;
+      transform: translate(-50%, -50%);
+    }
+    #upload-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0px 4px 8px var(--color-light-shadow);
+    }
+
+    /* Settings Tab */
+    #settings-tab {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .settings-section {
+      margin-bottom: 20px;
+    }
+    .settings-section input {
+      padding: 10px;
+      font-size: 16px;
+      background-color: var(--color-dark);
+      color: var(--color-light);
+      border: 1px solid var(--color-light);
+      border-radius: 4px;
+      width: 300px;
+      margin-right: 10px;
+    }
+    .settings-section button {
+      padding: 10px 15px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      background-color: var(--color-light);
+      color: var(--color-dark);
+    }
+    .settings-response {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: var(--color-dark);
+      border: 1px solid var(--color-light);
+      border-radius: 4px;
+      max-width: 600px;
+      color: var(--color-light);
+    }
+  </style>
+</head>
+<body>
+  <!-- Settings/Chat Toggle Button -->
+  <div class="tabs">
+    <button class="settings-button" id="toggle-settings">Settings</button>
+  </div>
+  
+  <div class="container">
+    <!-- Content Area -->
+    <div class="content">
+      <!-- Main Chat Tab -->
+      <div id="main-tab">
+        <div class="header">ACE</div>
+        <div class="chat-window" id="chat-window">
+          <!-- Chat messages will appear here -->
+        </div>
+        <div class="input-area">
+          <textarea id="query-input" rows="2" placeholder="Type your query here..."></textarea>
+          <button id="submit-button"></button>
+          <select id="model-select">
+            <!-- Options will be dynamically populated -->
+          </select>
+          <button id="upload-button"></button>
+          <!-- Hidden file input -->
+          <input type="file" id="file-input" style="display:none;">
+        </div>
+      </div>
+      <!-- Settings Tab -->
+      <div id="settings-tab" style="display:none;">
+        <div class="settings-section">
+          <label for="model-download-input">Download Model:</label>
+          <input type="text" id="model-download-input" placeholder="Model Name">
+          <button id="download-button">Download</button>
+        </div>
+        <div class="settings-response" id="download-response">
+          <!-- Download response will appear here -->
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    // Button & Tab References
+    const toggleButton = document.getElementById('toggle-settings');
+    const mainTab = document.getElementById('main-tab');
+    const settingsTab = document.getElementById('settings-tab');
+
+    // Chat/AI Elements
+    const chatWindow = document.getElementById('chat-window');
+    const queryInput = document.getElementById('query-input');
+    const submitButton = document.getElementById('submit-button');
+    const modelSelect = document.getElementById('model-select');
+    const uploadButton = document.getElementById('upload-button');
+    const fileInput = document.getElementById('file-input');
+    
+    let isUserScrolling = false;
+    
+    // Track manual scrolling
+    chatWindow.addEventListener('scroll', () => {
+      const threshold = 10;
+      isUserScrolling = (chatWindow.scrollHeight - chatWindow.scrollTop - chatWindow.clientHeight) > threshold;
+    });
+    
+    // Auto-scroll if user is not scrolling
+    function autoScroll() {
+      if (!isUserScrolling) {
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
+    }
+
+    // Disable or enable user input fields
+    function setUserInputEnabled(enabled) {
+      queryInput.disabled = !enabled;
+      submitButton.disabled = !enabled;
+      modelSelect.disabled = !enabled;
+      uploadButton.disabled = !enabled;
+    }
+    
+    // Initially, user input is enabled
+    setUserInputEnabled(true);
+
+    // Populate model selector via IPC
+    ipcRenderer.invoke('get-ai-options').then(options => {
+      modelSelect.innerHTML = '';
+      options.forEach(opt => {
+        const optionElem = document.createElement('option');
+        optionElem.value = opt;
+        optionElem.textContent = opt;
+        modelSelect.appendChild(optionElem);
+      });
+    }).catch(err => {
+      console.error("Error fetching AI options:", err);
+    });
+    
+    // Toggle between Main and Settings views
+    toggleButton.addEventListener('click', () => {
+      if (settingsTab.style.display === 'none' || settingsTab.style.display === '') {
+        // Show settings
+        settingsTab.style.display = 'flex';
+        mainTab.style.display = 'none';
+        toggleButton.classList.add('active');
+        toggleButton.textContent = 'Chat';
+      } else {
+        // Hide settings, show chat
+        settingsTab.style.display = 'none';
+        mainTab.style.display = 'flex';
+        toggleButton.classList.remove('active');
+        toggleButton.textContent = 'Settings';
+      }
+    });
+    
+    // --- File Upload Handling ---
+    let selectedFilePath = "";
+    uploadButton.addEventListener('click', async () => {
+      const filePath = await ipcRenderer.invoke('open-file-dialog');
+      if (filePath) {
+        selectedFilePath = filePath;
+        console.log("Selected file: " + selectedFilePath);
+      }
+    });
+    
+    // --- Query Submission ---
+    queryInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitButton.click();
+      }
+    });
+    
+    submitButton.addEventListener('click', async () => {
+      const query = queryInput.value.trim();
+      const model = modelSelect.value;
+      if (query === "") return;
+
+      // Disable user input while AI is processing
+      setUserInputEnabled(false);
+
+      // Append user message to chat
+      const userMessage = document.createElement('div');
+      userMessage.className = 'message user-message';
+      userMessage.textContent = query;
+      chatWindow.appendChild(userMessage);
+      autoScroll();
+      
+      queryInput.value = "";
+
+      // Send query to the AI via IPC
+      const response = await ipcRenderer.invoke('submit-ai-query', { query, model, filePath: selectedFilePath });
+      console.log("Final response: ", response);
+      selectedFilePath = "";
+
+      // Re-enable user input once AI has finished responding
+      setUserInputEnabled(true);
+    });
+    
+    // Handle AI stream (partial response chunks)
+    ipcRenderer.on('ai-stream', (event, data) => {
+      const lastChild = chatWindow.lastElementChild;
+      if (lastChild && lastChild.classList.contains('ai-message')) {
+        lastChild.textContent += data;
+      } else {
+        const aiMessage = document.createElement('div');
+        aiMessage.className = 'message ai-message';
+        aiMessage.textContent = data;
+        chatWindow.appendChild(aiMessage);
+      }
+      autoScroll();
+    });
+    
+    // --- Model Download Handling ---
+    const downloadButton = document.getElementById('download-button');
+    const modelDownloadInput = document.getElementById('model-download-input');
+    const downloadResponse = document.getElementById('download-response');
+    downloadButton.addEventListener('click', async () => {
+      const modelName = modelDownloadInput.value.trim();
+      if (modelName === "") return;
+      const result = await ipcRenderer.invoke('download-model', modelName);
+      downloadResponse.textContent = result;
+    });
+  </script>
+</body>
+</html>

@@ -2,6 +2,7 @@
 
 ## **Overview**
 **ACE** is a graphical user interface (GUI) for **Ollama**, designed to eliminate the need for command-line usage. This project provides an intuitive interface for users to interact with locally installed AI models.
+**Now an Electron application**
 
 ## **Features**
 - **PDF Processing**: Upload and analyze PDFs.
@@ -49,6 +50,27 @@ pip install ollama pymupdf customtkinter pillow tiktoken
 - Install at least **one AI model** compatible with Ollama.
 - The **"llava:latest"** model is required for image processing.
 
+### **Node.js & npm**
+- **Node.js** (v14 or later recommended)
+- **npm** (bundled with Node)
+
+---
+
+# **Installing Node.js**
+
+Node.js is a JavaScript runtime that lets you run JavaScript code on your computer (outside the browser). You need Node.js (and its bundled npm) to install and run many JavaScript-based tools, including Electron apps.
+
+---
+
+## **1. Download from the Official Website**
+
+1. **Go to** [nodejs.org](https://nodejs.org/).
+2. **Choose** the **LTS** (Long-Term Support) version for better stability (e.g., “Recommended for most users”).
+3. **Download** the installer for your operating system (Windows, macOS, or Linux).
+4. **Run** the installer and follow the on-screen instructions (accept defaults unless you have specific needs).
+
+---
+
 ### **Operating System Compatibility**
 - Works on **Windows, macOS, and Linux** (as long as Python and required dependencies are installed).
 
@@ -69,9 +91,6 @@ env\Scripts\activate      # On Windows
 ```
 
 ### **3. Install Dependencies**
-```sh
-pip install -r requirements.txt
-```
 
 ### **4. Start Ollama (if not running)**
 ```sh
@@ -79,14 +98,20 @@ ollama serve
 ```
 
 ### **5. Run the GUI**
+
+- Install Node Dependancies:
 ```sh
-python ui.py
+npm install
+```
+- Start:
+```sh
+npm start
 ```
 
 ---
 
 ## **Usage**
-1. **Launch ACE** by running `python ui.py`.
+1. **Launch ACE**.
 2. **Select an installed AI model** or install a new one from the **Settings** tab.
 3. **Upload PDFs or images** for processing.
 4. **Enter prompts** and receive real-time responses.
@@ -94,9 +119,7 @@ python ui.py
 ---
 
 ## **Screenshots**
-![Screenshot](images/image1.png)  
-![Screenshot](images/image2.png)  
-![Screenshot](images/image3.png)  
+
 
 ---
 
