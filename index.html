@@ -3,257 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <title>ACE AI</title>
+  <!-- Link to your external CSS file -->
+  <link rel="stylesheet" href="style.css">
   <style>
-    @font-face {
-      font-family: 'AlbraBlack';
-      src: url('FontsFree-Net-AlbraBlack.tff') format('truetype');
-    }
-
-    :root {
-      --color-dark: #2E424D;        /* Main dark background */
-      --color-dark-darker: #24343C; /* Slightly darker version of #2E424D */
-
-      /* Light text and its partial opacities */
-      --color-light: #f5eded;
-      --color-light-rgba-15: rgba(245, 237, 237, 0.15);
-      --color-light-rgba-05: rgba(245, 237, 237, 0.05);
-      --color-light-shadow: rgba(245, 237, 237, 0.5);
-    }
-
-
-    /* Base Styles */
-    body {
-      margin: 0;
-      font-family: 'Montserrat', Arial, sans-serif;
-      background-color: var(--color-dark); /* Dark background */
-      color: var(--color-light);           /* Light text */
-      height: 100vh;
-      overflow: hidden;
-    }
-    .container {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-
-    /* Settings/Chat Toggle Button in top-right corner */
-    .tabs {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 10;
-    }
-    .settings-button {
-      background-color: var(--color-light); /* Light background for contrast */
-      color: var(--color-dark);             /* Dark text on button */
-      padding: 10px 15px;
-      font-size: 16px;
-      border: 2px solid var(--color-light);
-      border-radius: 4px;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .settings-button:hover {
-      transform: scale(1.05);
-      box-shadow: 0px 4px 8px var(--color-light-shadow);
-    }
-    .settings-button.active {
-      background-color: var(--color-dark);
-      color: var(--color-light);
-      border: 2px solid var(--color-light);
-    }
-
-    /* Content Area */
-    .content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background-color: var(--color-dark);
-      padding: 20px;
-      box-sizing: border-box;
-      overflow: hidden;
-    }
-
-    /* Main Tab */
-    #main-tab {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
-    .header {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 10px 0;
-      font-size: 100px;
-      font-family: 'AlbraBlack';
-      color: var(--color-light);
-
-      /* Simulate an outline by applying shadows on all sides */
-      text-shadow:
-        -2.5px -2.5px 0 #24343C,
-        2.5px -2.5px 0 #24343C,
-        -2.5px  2.5px 0 #24343C,
-        2.5px  2.5px 0 #24343C;
-    }
+    /* If you prefer to keep spinner CSS in style.css, move it there. */
     .chat-window {
-      flex: 1;
-      padding: 10px;
-      overflow-y: auto;
-      background-color: var(--color-dark);
-      color: var(--color-light);
-      display: flex;
-      flex-direction: column;
-      white-space: pre-wrap;
-      scroll-behavior: smooth;
+      position: relative; /* Needed for absolute positioning of spinner */
     }
-
-    /* Messages tinted with partial opacity of the “light” color */
-    .message {
-      margin: 12px 0;
-      max-width: 80%;
-      padding: 10px;
-      border-radius: 10px;
-      word-wrap: break-word;
-    }
-    .user-message {
-      background-color: var(--color-light-rgba-15);
-      align-self: flex-end;
-      text-align: right;
-    }
-    .ai-message {
-      background-color: var(--color-light-rgba-05);
-      align-self: flex-start;
-      text-align: left;
-    }
-
-    /* Input Area */
-    .input-area {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    #query-input {
-      flex: 1;
-      padding: 10px;
-      font-size: 16px;
-      background-color: var(--color-dark-darker); /* Slightly darker background for input */
-      color: var(--color-light);
-      border: 1px solid var(--color-light);
-      border-radius: 4px;
-      resize: none;
-    }
-
-    /* Submit Button: Up Arrow */
-    #submit-button {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: 2px solid var(--color-light);
-      background-color: var(--color-light);
-      position: relative;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    #submit-button::before {
-      content: "";
+    .spinner {
+      display: none;
+      /* Absolutely position the spinner at the bottom center */
       position: absolute;
-      top: 50%;
+      bottom: 10px;
       left: 50%;
-      transform: translate(-50%, -50%);
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-bottom: 10px solid var(--color-dark);
-    }
-    #submit-button:hover {
-      transform: scale(1.1);
-      box-shadow: 0px 4px 8px var(--color-light-shadow);
-    }
-
-    /* Model Selector */
-    #model-select {
-      background-color: var(--color-dark-darker);
-      color: var(--color-light);
-      border: 1px solid var(--color-light);
-      border-radius: 4px;
-      font-size: 16px;
-      padding: 10px;
-      width: 150px;
-    }
-
-    /* Upload Button: Plus Sign */
-    #upload-button {
-      width: 40px;
-      height: 40px;
+      transform: translateX(-50%);
+      
+      width: 32px;
+      height: 32px;
+      border: 4px solid #f3f3f3;  /* lighter color or your background color */
+      border-top: 4px solid #555; /* darker color for the "progress" portion */
       border-radius: 50%;
-      border: 2px solid var(--color-light);
-      background-color: var(--color-dark);
-      position: relative;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
+      animation: spin 1s linear infinite;
     }
-    #upload-button::before,
-    #upload-button::after {
-      content: "";
-      position: absolute;
-      background-color: var(--color-light);
-    }
-    #upload-button::before {
-      top: 50%;
-      left: 50%;
-      width: 16px;
-      height: 2px;
-      transform: translate(-50%, -50%);
-    }
-    #upload-button::after {
-      top: 50%;
-      left: 50%;
-      width: 2px;
-      height: 16px;
-      transform: translate(-50%, -50%);
-    }
-    #upload-button:hover {
-      transform: scale(1.1);
-      box-shadow: 0px 4px 8px var(--color-light-shadow);
-    }
-
-    /* Settings Tab */
-    #settings-tab {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
-    .settings-section {
-      margin-bottom: 20px;
-    }
-    .settings-section input {
-      padding: 10px;
-      font-size: 16px;
-      background-color: var(--color-dark);
-      color: var(--color-light);
-      border: 1px solid var(--color-light);
-      border-radius: 4px;
-      width: 300px;
-      margin-right: 10px;
-    }
-    .settings-section button {
-      padding: 10px 15px;
-      font-size: 16px;
-      cursor: pointer;
-      border: none;
-      border-radius: 4px;
-      background-color: var(--color-light);
-      color: var(--color-dark);
-    }
-    .settings-response {
-      margin-top: 10px;
-      padding: 10px;
-      background-color: var(--color-dark);
-      border: 1px solid var(--color-light);
-      border-radius: 4px;
-      max-width: 600px;
-      color: var(--color-light);
+    @keyframes spin {
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
@@ -270,7 +44,9 @@
       <div id="main-tab">
         <div class="header">ACE</div>
         <div class="chat-window" id="chat-window">
-          <!-- Chat messages will appear here -->
+          <!-- AI/user messages will appear here (appended by JS) -->
+          <!-- Spinner is absolutely positioned at bottom -->
+          <div class="spinner" id="loading-spinner"></div>
         </div>
         <div class="input-area">
           <textarea id="query-input" rows="2" placeholder="Type your query here..."></textarea>
@@ -312,32 +88,35 @@
     const modelSelect = document.getElementById('model-select');
     const uploadButton = document.getElementById('upload-button');
     const fileInput = document.getElementById('file-input');
-    
+
+    // For auto-scrolling logic
     let isUserScrolling = false;
-    
-    // Track manual scrolling
     chatWindow.addEventListener('scroll', () => {
       const threshold = 10;
       isUserScrolling = (chatWindow.scrollHeight - chatWindow.scrollTop - chatWindow.clientHeight) > threshold;
     });
-    
-    // Auto-scroll if user is not scrolling
     function autoScroll() {
       if (!isUserScrolling) {
         chatWindow.scrollTop = chatWindow.scrollHeight;
       }
     }
 
-    // Disable or enable user input fields
+    // Enable/disable user input fields
     function setUserInputEnabled(enabled) {
       queryInput.disabled = !enabled;
       submitButton.disabled = !enabled;
       modelSelect.disabled = !enabled;
       uploadButton.disabled = !enabled;
     }
-    
-    // Initially, user input is enabled
-    setUserInputEnabled(true);
+    setUserInputEnabled(true); // Initially enabled
+
+    // Show/hide the spinner
+    function showSpinner() {
+      document.getElementById('loading-spinner').style.display = 'block';
+    }
+    function hideSpinner() {
+      document.getElementById('loading-spinner').style.display = 'none';
+    }
 
     // Populate model selector via IPC
     ipcRenderer.invoke('get-ai-options').then(options => {
@@ -369,7 +148,7 @@
       }
     });
     
-    // --- File Upload Handling ---
+    // File Upload Handling
     let selectedFilePath = "";
     uploadButton.addEventListener('click', async () => {
       const filePath = await ipcRenderer.invoke('open-file-dialog');
@@ -379,7 +158,7 @@
       }
     });
     
-    // --- Query Submission ---
+    // Query Submission: Enter key triggers click
     queryInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -387,33 +166,40 @@
       }
     });
     
+    // Main event: user clicks "submit"
     submitButton.addEventListener('click', async () => {
       const query = queryInput.value.trim();
       const model = modelSelect.value;
       if (query === "") return;
 
-      // Disable user input while AI is processing
+      // Disable input and show spinner
       setUserInputEnabled(false);
+      showSpinner();
 
-      // Append user message to chat
+      // Append user message to chatWindow
       const userMessage = document.createElement('div');
       userMessage.className = 'message user-message';
       userMessage.textContent = query;
       chatWindow.appendChild(userMessage);
       autoScroll();
-      
+
       queryInput.value = "";
 
-      // Send query to the AI via IPC
-      const response = await ipcRenderer.invoke('submit-ai-query', { query, model, filePath: selectedFilePath });
+      // Send query to the AI (IPC)
+      const response = await ipcRenderer.invoke('submit-ai-query', {
+        query,
+        model,
+        filePath: selectedFilePath
+      });
       console.log("Final response: ", response);
-      selectedFilePath = "";
 
-      // Re-enable user input once AI has finished responding
+      // Re-enable input, hide spinner
+      hideSpinner();
       setUserInputEnabled(true);
+      selectedFilePath = "";
     });
     
-    // Handle AI stream (partial response chunks)
+    // Handle AI streaming partial responses
     ipcRenderer.on('ai-stream', (event, data) => {
       const lastChild = chatWindow.lastElementChild;
       if (lastChild && lastChild.classList.contains('ai-message')) {
@@ -427,7 +213,7 @@
       autoScroll();
     });
     
-    // --- Model Download Handling ---
+    // Model Download Handling
     const downloadButton = document.getElementById('download-button');
     const modelDownloadInput = document.getElementById('model-download-input');
     const downloadResponse = document.getElementById('download-response');
