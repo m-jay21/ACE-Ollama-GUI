@@ -1,6 +1,46 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
+const fs = require('fs');
+
+// Helper function to get the correct path for Python scripts
+function getPythonScriptPath(scriptName) {
+  if (app.isPackaged) {
+    // In production, scripts are in the resources directory
+    return path.join(process.resourcesPath, scriptName);
+  } else {
+    // In development, scripts are in the project root
+    return path.join(__dirname, scriptName);
+  }
+}
+
+// Helper function to get Python executable path
+function getPythonPath() {
+  if (process.platform === 'win32') {
+    return 'python';  // Windows will use the system Python
+  } else {
+    return 'python3'; // Unix-like systems typically use python3
+  }
+}
+
+// Helper function to get the path for theMessages.txt
+function getMessagesFilePath() {
+  if (app.isPackaged) {
+    // In production, use the resources directory
+    return path.join(process.resourcesPath, 'theMessages.txt');
+  } else {
+    // In development, use the project root
+    return path.join(__dirname, 'theMessages.txt');
+  }
+}
+
+// Ensure theMessages.txt exists in the correct location
+function ensureMessagesFileExists() {
+  const messagesPath = getMessagesFilePath();
+  if (!fs.existsSync(messagesPath)) {
+    fs.writeFileSync(messagesPath, '');
+  }
+}
 
 // Create the application window
 function createWindow() {
@@ -23,6 +63,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Ensure theMessages.txt exists when the app starts
+  ensureMessagesFileExists();
   createWindow();
 
   // Re-create window on macOS when dock icon is clicked.
@@ -57,7 +99,10 @@ ipcMain.handle('open-file-dialog', async (event) => {
 ipcMain.handle('submit-ai-query', async (event, args) => {
   // args: { query: string, model: string, filePath?: string }
   return new Promise((resolve, reject) => {
-    let scriptArgs = ['-u', path.join(__dirname, 'runAI.py')];
+    const scriptPath = getPythonScriptPath('runAI.py');
+    console.log('Python script path:', scriptPath);
+    
+    let scriptArgs = ['-u', scriptPath];
 
     // Pass query and model arguments to the Python script.
     scriptArgs.push('--query', args.query);
@@ -69,7 +114,7 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
     }
 
     // Spawn the Python process.
-    const pythonProcess = spawn('python', scriptArgs);
+    const pythonProcess = spawn(getPythonPath(), scriptArgs);
 
     let fullResponse = '';
 
@@ -94,26 +139,40 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
 // IPC handler for downloading a model
 ipcMain.handle('download-model', async (event, modelName) => {
   return new Promise((resolve, reject) => {
+    const scriptPath = getPythonScriptPath('downloadModel.py');
+    console.log('Python script path:', scriptPath);
+    
     const scriptArgs = [
       '-u',
-      path.join(__dirname, 'downloadModel.py'),
+      scriptPath,
       '--model',
       modelName,
     ];
-    const pythonProcess = spawn('python', scriptArgs);
-
-    let fullResponse = '';
+    const pythonProcess = spawn(getPythonPath(), scriptArgs);
 
     pythonProcess.stdout.on('data', (data) => {
-      fullResponse += data.toString();
+      data.toString().split('\n').forEach(line => {
+        if (line.trim()) {
+          try {
+            const progress = JSON.parse(line);
+            // Send progress to renderer
+            event.sender.send('download-progress', progress);
+            if (progress.progress === 100 || progress.status === "Cannot be installed") {
+              resolve(progress);
+            }
+          } catch (e) {}
+        }
+      });
     });
 
     pythonProcess.stderr.on('data', (data) => {
-      console.error(`stderr: ${data}`);
+      reject(new Error(data.toString()));
     });
 
     pythonProcess.on('close', (code) => {
-      resolve(fullResponse);
+      if (code !== 0) {
+        reject(new Error(`Process exited with code ${code}`));
+      }
     });
   });
 });
@@ -121,28 +180,55 @@ ipcMain.handle('download-model', async (event, modelName) => {
 // IPC handler for retrieving AI model options
 ipcMain.handle('get-ai-options', async () => {
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python', [path.join(__dirname, 'getAIOptions.py')]);
+    const scriptPath = getPythonScriptPath('getAIOptions.py');
+    console.log('Python script path:', scriptPath);
+    
+    const pythonProcess = spawn(getPythonPath(), [scriptPath]);
     let data = '';
 
     pythonProcess.stdout.on('data', (chunk) => {
       data += chunk;
     });
 
+    pythonProcess.stderr.on('data', (data) => {
+      console.error(`stderr: ${data}`);
+    });
+
     pythonProcess.on('close', (code) => {
       try {
-        const options = JSON.parse(data);
-        if (options.length === 0) {
-          reject(new Error('No AI models returned.'));
-        } else {
-          resolve(options);
+        if (!data.trim()) {
+          // If no data was received, return "No models found"
+          resolve(["No models found"]);
+          return;
         }
+        const options = JSON.parse(data);
+        resolve(options);
       } catch (err) {
-        reject(err);
+        console.error('Error parsing AI options:', err);
+        // Return "No models found" on error
+        resolve(["No models found"]);
       }
     });
 
     pythonProcess.on('error', (err) => {
-      reject(err);
+      console.error('Error spawning Python process:', err);
+      // Return "No models found" on error
+      resolve(["No models found"]);
     });
+  });
+});
+
+// IPC handler for clearing chat
+ipcMain.handle('clear-chat', async () => {
+  return new Promise((resolve, reject) => {
+    try {
+      const messagesPath = getMessagesFilePath();
+      console.log('Clearing chat file at:', messagesPath);
+      fs.writeFileSync(messagesPath, '');
+      resolve(true);
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      reject(error);
+    }
   });
 });

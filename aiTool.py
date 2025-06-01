@@ -3,6 +3,18 @@ import ollama
 import json
 import tiktoken
 import os
+import subprocess
+import time
+import sys
+
+def get_messages_file_path():
+    if getattr(sys, 'frozen', False):
+        # Running in a bundle (packaged app)
+        base_path = os.path.dirname(sys.executable)
+        return os.path.join(base_path, 'resources', 'theMessages.txt')
+    else:
+        # Running in normal Python environment
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'theMessages.txt')
 
 def aiOptions():
     response = ollama.list()
@@ -19,15 +31,70 @@ def cleanAnsi(text):
     text = re.sub(r'([.!?])([A-Za-z])', r'\1 \2', text)
     return text
 
-def downloadModel(text):
-    if text in aiOptions():
-        return "Already Installed"
+def format_time(seconds):
+    if seconds < 60:
+        return f"{int(seconds)} seconds"
+    elif seconds < 3600:
+        minutes = int(seconds / 60)
+        return f"{minutes} minute{'s' if minutes != 1 else ''}"
+    else:
+        hours = int(seconds / 3600)
+        minutes = int((seconds % 3600) / 60)
+        return f"{hours} hour{'s' if hours != 1 else ''} {minutes} minute{'s' if minutes != 1 else ''}"
+
+def downloadModel(model_name):
+    if model_name in aiOptions():
+        print(json.dumps({"status": "Already Installed", "progress": 100}))
+        sys.stdout.flush()
+        return
     try:
-        ollama.pull(text)
-    except Exception as e:
-        return "Cannot be installed"
-    
-    return "Installed"
+        start_time = time.time()
+        last_progress = 0
+        process = subprocess.Popen(
+            ['ollama', 'pull', model_name],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
+        while True:
+            line = process.stdout.readline()
+            if not line and process.poll() is not None:
+                break
+            if line:
+                # Extract percentage from any line
+                match = re.search(r'(\d+)%', line)
+                if match:
+                    current_progress = int(match.group(1))
+                    last_progress = current_progress
+                else:
+                    current_progress = last_progress
+                # Time estimate
+                elapsed = time.time() - start_time
+                if current_progress > 0 and current_progress < 100:
+                    est_total = elapsed / (current_progress / 100)
+                    est_remaining = est_total - elapsed
+                    if est_remaining > 60:
+                        mins = int(est_remaining // 60)
+                        secs = int(est_remaining % 60)
+                        time_estimate = f" (Est. {mins}m {secs}s left)"
+                    else:
+                        time_estimate = f" (Est. {int(est_remaining)}s left)"
+                else:
+                    time_estimate = ""
+                print(json.dumps({
+                    "status": f"{line.strip()}{time_estimate}",
+                    "progress": current_progress
+                }))
+                sys.stdout.flush()
+        if process.returncode == 0:
+            print(json.dumps({"status": "Installed", "progress": 100}))
+            sys.stdout.flush()
+        else:
+            print(json.dumps({"status": "Cannot be installed", "progress": 0}))
+            sys.stdout.flush()
+    except Exception:
+        print(json.dumps({"status": "Cannot be installed", "progress": 0}))
+        sys.stdout.flush()
 
 #estimate tokens in a list of messages
 def estimate_tokens(message):
@@ -50,12 +117,14 @@ def get_dynamic_num_ctx(message):
         return 8192  #max possible limit
 
 def runData(text, model):
+    messages_file = get_messages_file_path()
+    
     #append user message
-    with open("theMessages.txt", 'a') as file:
+    with open(messages_file, 'a') as file:
         file.write(json.dumps({"role": "user", "content": text}) + "\n")
 
     #open the file for reading
-    with open("theMessages.txt", 'r') as file:
+    with open(messages_file, 'r') as file:
         lines = file.readlines() 
         theMessages = [json.loads(line.strip()) for line in lines if line.strip()]  #convert JSON strings to dicts
 
@@ -72,10 +141,12 @@ def runData(text, model):
         yield word  #yield word-by-word
 
     #append assistant response properly
-    with open("theMessages.txt", 'a') as file:
+    with open(messages_file, 'a') as file:
         file.write(json.dumps({"role": "assistant", "content": full_response}) + "\n")
 
 def runImage(text, imagePath):
+    messages_file = get_messages_file_path()
+    
     # Get the list of installed models
     model_names = aiOptions()
 
@@ -107,6 +178,6 @@ def runImage(text, imagePath):
         yield word  
 
     # Store the full response
-    with open("theMessages.txt", 'a') as file:
+    with open(messages_file, 'a') as file:
         file.write(json.dumps({"role": "assistant", "content": full_response}) + "\n")
 

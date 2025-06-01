@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACE AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .gradient-text {
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    
+    .message-enter {
+      animation: messageEnter 0.3s ease-out forwards;
+    }
+    
+    @keyframes messageEnter {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .glow {
+      box-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
+    }
+    
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-montserrat h-screen overflow-hidden">
+  <!-- Settings Toggle Button -->
+  <div class="absolute top-4 right-4 z-20">
+    <button id="toggle-settings" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-full transition-all duration-200 transform hover:scale-105 shadow-lg">
+      <span id="toggle-text">Settings</span>
+    </button>
+  </div>
+
+  <!-- Main Container -->
+  <div class="container mx-auto h-full flex flex-col max-w-6xl px-4">
+    <!-- Main Tab -->
+    <div id="main-tab" class="flex flex-col h-full">
+      <!-- Header -->
+      <div class="py-6 text-center">
+        <h1 class="text-6xl font-bold gradient-text mb-2">ACE</h1>
+        <p class="text-indigo-300">Your local AI assistant</p>
+      </div>
+
+      <!-- Chat Window -->
+      <div id="chat-window" class="flex-1 overflow-y-auto scrollbar-hide bg-gray-800 rounded-xl p-4 mb-4 space-y-4">
+        <div class="flex justify-center items-center h-full" id="empty-state">
+          <div class="text-center text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            <p class="text-lg">Start a conversation with ACE</p>
+            <p class="text-sm mt-1">Ask anything or upload a file for analysis</p>
+          </div>
+        </div>
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="hidden mx-auto my-4 w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="bg-gray-800 rounded-xl p-4 mb-4">
+        <div class="flex items-end space-x-3">
+          <!-- File Upload Button -->
+          <button id="upload-button" class="flex-shrink-0 bg-gray-700 hover:bg-gray-600 text-indigo-400 p-3 rounded-full transition-all duration-200 transform hover:scale-110">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </button>
+          <input type="file" id="file-input" class="hidden">
+          
+          <!-- Text Input -->
+          <textarea id="query-input" rows="1" class="flex-grow bg-gray-700 text-gray-100 rounded-xl px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200" placeholder="Type your message here..."></textarea>
+          
+          <!-- Model Selector -->
+          <select id="model-select" class="bg-gray-700 text-gray-100 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200">
+            <!-- Options will be populated dynamically -->
+          </select>
+          
+          <!-- Submit Button -->
+          <button id="submit-button" class="flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-full transition-all duration-200 transform hover:scale-110 glow">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="settings-tab" class="hidden h-full flex flex-col">
+      <div class="py-6 text-center">
+        <h2 class="text-3xl font-bold gradient-text mb-2">Settings</h2>
+        <p class="text-indigo-300">Configure your ACE AI experience</p>
+      </div>
+      
+      <div class="flex-1 bg-gray-800 rounded-xl p-6 overflow-y-auto">
+        <div class="max-w-md mx-auto">
+          <div class="mb-6">
+            <h3 class="text-xl font-semibold text-indigo-300 mb-4">Model Management</h3>
+            
+            <div class="flex items-center space-x-2">
+              <input type="text" id="model-download-input" class="flex-grow bg-gray-700 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Enter model name">
+              <button id="download-button" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-all duration-200">
+                Download
+              </button>
+            </div>
+            
+            <div id="download-response" class="mt-3 bg-gray-700 text-gray-100 rounded-lg p-3 text-sm hidden">
+              <!-- Download response will appear here -->
+            </div>
+          </div>
+          
+          <div class="pt-4 border-t border-gray-700">
+            <h3 class="text-xl font-semibold text-indigo-300 mb-4">Appearance</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-gray-300 mb-2">Theme</label>
+                <select class="w-full bg-gray-700 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option>Dark</option>
+                  <option>Light</option>
+                  <option>System</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    // Button & Tab References
+    const toggleButton = document.getElementById('toggle-settings');
+    const toggleText = document.getElementById('toggle-text');
+    const mainTab = document.getElementById('main-tab');
+    const settingsTab = document.getElementById('settings-tab');
+    const emptyState = document.getElementById('empty-state');
+
+    // Chat/AI Elements
+    const chatWindow = document.getElementById('chat-window');
+    const queryInput = document.getElementById('query-input');
+    const submitButton = document.getElementById('submit-button');
+    const modelSelect = document.getElementById('model-select');
+    const uploadButton = document.getElementById('upload-button');
+    const fileInput = document.getElementById('file-input');
+    const loadingSpinner = document.getElementById('loading-spinner');
+
+    // Settings Elements
+    const downloadButton = document.getElementById('download-button');
+    const modelDownloadInput = document.getElementById('model-download-input');
+    const downloadResponse = document.getElementById('download-response');
+
+    // For auto-scrolling logic
+    let isUserScrolling = false;
+    chatWindow.addEventListener('scroll', () => {
+      const threshold = 10;
+      isUserScrolling = (chatWindow.scrollHeight - chatWindow.scrollTop - chatWindow.clientHeight) > threshold;
+    });
+
+    function autoScroll() {
+      if (!isUserScrolling) {
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
+    }
+
+    // Enable/disable user input fields
+    function setUserInputEnabled(enabled) {
+      queryInput.disabled = !enabled;
+      submitButton.disabled = !enabled;
+      modelSelect.disabled = !enabled;
+      uploadButton.disabled = !enabled;
+      
+      if (enabled) {
+        submitButton.classList.remove('opacity-50');
+        submitButton.classList.add('glow');
+      } else {
+        submitButton.classList.add('opacity-50');
+        submitButton.classList.remove('glow');
+      }
+    }
+    setUserInputEnabled(true); // Initially enabled
+
+    // Show/hide the spinner
+    function showSpinner() {
+      loadingSpinner.classList.remove('hidden');
+    }
+    
+    function hideSpinner() {
+      loadingSpinner.classList.add('hidden');
+    }
+
+    // Auto-resize textarea as user types
+    queryInput.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    // Populate model selector via IPC
+    ipcRenderer.invoke('get-ai-options').then(options => {
+      modelSelect.innerHTML = '';
+      options.forEach(opt => {
+        const optionElem = document.createElement('option');
+        optionElem.value = opt;
+        optionElem.textContent = opt;
+        modelSelect.appendChild(optionElem);
+      });
+    }).catch(err => {
+      console.error("Error fetching AI options:", err);
+    });
+    
+    // Toggle between Main and Settings views
+    toggleButton.addEventListener('click', () => {
+      if (settingsTab.classList.contains('hidden')) {
+        // Show settings
+        settingsTab.classList.remove('hidden');
+        settingsTab.classList.add('flex');
+        mainTab.classList.add('hidden');
+        mainTab.classList.remove('flex');
+        toggleButton.classList.add('bg-gray-700');
+        toggleButton.classList.remove('bg-indigo-600');
+        toggleText.textContent = 'Chat';
+      } else {
+        // Hide settings, show chat
+        settingsTab.classList.add('hidden');
+        settingsTab.classList.remove('flex');
+        mainTab.classList.remove('hidden');
+        mainTab.classList.add('flex');
+        toggleButton.classList.remove('bg-gray-700');
+        toggleButton.classList.add('bg-indigo-600');
+        toggleText.textContent = 'Settings';
+      }
+    });
+    
+    // File Upload Handling
+    let selectedFilePath = "";
+    uploadButton.addEventListener('click', async () => {
+      const filePath = await ipcRenderer.invoke('open-file-dialog');
+      if (filePath) {
+        selectedFilePath = filePath;
+        // Show a brief notification
+        const notification = document.createElement('div');
+        notification.className = 'bg-indigo-600 text-white px-4 py-2 rounded-lg mb-2 message-enter';
+        notification.textContent = `File selected: ${filePath.split('/').pop()}`;
+        chatWindow.appendChild(notification);
+        setTimeout(() => {
+          notification.remove();
+        }, 3000);
+      }
+    });
+    
+    // Query Submission: Enter key triggers click
+    queryInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitButton.click();
+      }
+    });
+    
+    // Create a new message element
+    function createMessage(content, isUser) {
+      const message = document.createElement('div');
+      message.className = `flex ${isUser ? 'justify-end' : 'justify-start'} message-enter`;
+      
+      const bubble = document.createElement('div');
+      bubble.className = `max-w-[80%] rounded-2xl px-4 py-3 ${isUser ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-100 rounded-bl-none'}`;
+      bubble.textContent = content;
+      
+      message.appendChild(bubble);
+      return message;
+    }
+
+    // Main event: user clicks "submit"
+    submitButton.addEventListener('click', async () => {
+      const query = queryInput.value.trim();
+      const model = modelSelect.value;
+      if (query === "") return;
+
+      // Disable input and show spinner
+      setUserInputEnabled(false);
+      showSpinner();
+
+      // Remove empty state if it exists
+      if (emptyState) {
+        emptyState.remove();
+      }
+
+      // Append user message to chatWindow
+      const userMessage = createMessage(query, true);
+      chatWindow.appendChild(userMessage);
+      autoScroll();
+
+      queryInput.value = "";
+      queryInput.style.height = 'auto'; // Reset textarea height
+
+      // Send query to the AI (IPC)
+      try {
+        const response = await ipcRenderer.invoke('submit-ai-query', {
+          query,
+          model,
+          filePath: selectedFilePath
+        });
+        console.log("Final response: ", response);
+      } catch (error) {
+        console.error("Error submitting query:", error);
+        const errorMessage = createMessage("Sorry, there was an error processing your request.", false);
+        chatWindow.appendChild(errorMessage);
+        autoScroll();
+      }
+
+      // Re-enable input, hide spinner
+      hideSpinner();
+      setUserInputEnabled(true);
+      selectedFilePath = "";
+    });
+    
+    // Handle AI streaming partial responses
+    ipcRenderer.on('ai-stream', (event, data) => {
+      // Remove empty state if it exists
+      if (emptyState) {
+        emptyState.remove();
+      }
+
+      const lastChild = chatWindow.lastElementChild;
+      const lastBubble = lastChild?.querySelector('div');
+      
+      if (lastBubble && !lastBubble.classList.contains('bg-indigo-600')) {
+        // Append to existing AI message
+        lastBubble.textContent += data;
+      } else {
+        // Create new AI message
+        const aiMessage = createMessage(data, false);
+        chatWindow.appendChild(aiMessage);
+      }
+      autoScroll();
+    });
+    
+    // Model Download Handling
+    downloadButton.addEventListener('click', async () => {
+      const modelName = modelDownloadInput.value.trim();
+      if (modelName === "") return;
+      
+      downloadButton.disabled = true;
+      downloadButton.textContent = "Downloading...";
+      downloadButton.classList.add('opacity-50');
+      
+      try {
+        const result = await ipcRenderer.invoke('download-model', modelName);
+        downloadResponse.textContent = result;
+        downloadResponse.classList.remove('hidden');
+      } catch (error) {
+        downloadResponse.textContent = `Error: ${error.message}`;
+        downloadResponse.classList.remove('hidden');
+      } finally {
+        downloadButton.disabled = false;
+        downloadButton.textContent = "Download";
+        downloadButton.classList.remove('opacity-50');
+      }
+    });
+  </script>
+</body>
+</html>
