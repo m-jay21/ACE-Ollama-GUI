@@ -67,6 +67,12 @@ npm start
 npm run dist
 ```
 
+### **Verification**
+The SHA256 hash for the latest release can be verified using:
+```
+DFA9935EFE93010F92BA76CC6037BC41852A2F9D6DC4E08D2155BF59B47BE88E
+```
+
 ---
 
 ## **Usage**
