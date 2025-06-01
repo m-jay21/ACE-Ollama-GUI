@@ -4,14 +4,17 @@
 **ACE** is a graphical user interface (GUI) for **Ollama**, designed to eliminate the need for command-line usage. This project provides an intuitive interface for users to interact with locally installed AI models. Built as an Electron application for better cross-platform compatibility and user experience.
 
 ## **Features**
-- **PDF Processing**: Upload and analyze PDFs.
-- **Image Processing**: Upload and analyze images.
-- **Model Selection**: Easily switch between installed AI models.
-- **Install New Models**: Install compatible Ollama models directly from the UI.
-- **Session Memory**: Remembers context within a session for a continuous conversation.
-- **Local Execution**: Run models directly on your machine without an internet connection.
-- **Real-time Output**: Word-by-word rendering for a natural, real-time effect.
-- **Cross-platform**: Works on Windows, macOS, and Linux.
+- **Modern UI**: Clean, responsive interface with customizable themes
+- **PDF Processing**: Upload and analyze PDFs with enhanced formatting
+- **Image Processing**: Upload and analyze images with improved preview
+- **Model Selection**: Intuitive model selection with real-time status indicators
+- **Install New Models**: One-click installation of compatible Ollama models
+- **Session Memory**: Advanced context management for continuous conversations
+- **Clear Chat**: Allows for the user to clear the chat's memory to start anew
+- **Local Execution**: Run models directly on your machine without internet dependency
+- **Real-time Output**: Smooth, word-by-word rendering for natural conversation flow
+- **Theme Customization**: Choose from multiple themes to personalize your experience
+- **Windows Native**: Optimized for Windows with native installer support
 
 ## **Planned Features**
 - **Prompt Modes**: Predefined modes (e.g., "Explain like I'm five") for different use cases.
