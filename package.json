@@ -1,6 +1,6 @@
 {
   "name": "aces-local-ai",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "**ACE** is a graphical user interface (GUI) for **Ollama**, designed to eliminate the need for command-line usage. This project provides an intuitive interface for users to interact with locally installed AI models.",
   "main": "main.js",
   "devDependencies": {

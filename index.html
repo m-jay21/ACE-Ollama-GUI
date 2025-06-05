@@ -81,9 +81,6 @@
       letter-spacing: 0.05em;
       font-size: 5rem;
       text-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
-    }
-    
-    .message-enter {
       animation: messageEnter 0.3s ease-out forwards;
     }
     
@@ -139,6 +136,15 @@
       --accent: #f5eded;
     }
 
+    .gold {
+      --bg-primary: #F5F4F0;
+      --bg-secondary: #FFFFFF;
+      --bg-tertiary: #F5F4F0;
+      --text-primary: #1D1D1F;
+      --text-secondary: #7C7C7C;
+      --accent: #D4AF37;
+    }
+
     /* Theme-specific gradient text */
     .dark .gradient-text {
       background: linear-gradient(90deg, #3b82f6, #8b5cf6);
@@ -161,8 +167,19 @@
       background-clip: initial;
     }
 
+    .gold .gradient-text {
+      background: linear-gradient(90deg, #D4AF37, #B8860B);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
     .nostalgia .glow {
       box-shadow: 0 0 15px rgba(245, 237, 237, 0.3);
+    }
+
+    .gold .glow {
+      box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
     }
   </style>
 </head>
@@ -278,6 +295,7 @@
                   <option value="dark">Dark</option>
                   <option value="light">Light</option>
                   <option value="nostalgia">Nostalgia</option>
+                  <option value="gold">Gold</option>
                   <option value="system">System</option>
                 </select>
               </div>
@@ -355,10 +373,10 @@
       const html = document.documentElement;
       if (theme === 'system') {
         const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        html.classList.remove('dark', 'light', 'nostalgia');
+        html.classList.remove('dark', 'light', 'nostalgia', 'gold');
         html.classList.add(systemTheme);
       } else {
-        html.classList.remove('dark', 'light', 'nostalgia');
+        html.classList.remove('dark', 'light', 'nostalgia', 'gold');
         html.classList.add(theme);
       }
       // Save theme preference
