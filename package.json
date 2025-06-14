@@ -17,17 +17,17 @@
     "win": {
       "target": "nsis",
       "icon": "logos/icon-512.png",
-      "artifactName": "${productName}-Setup.${ext}"
+      "artifactName": "${productName}-v${version}-Setup.${ext}"
     },
     "mac": {
       "target": "dmg",
       "icon": "logos/icon-512.png",
-      "artifactName": "${productName}.${ext}"
+      "artifactName": "${productName}-v${version}.${ext}"
     },
     "linux": {
       "target": "AppImage",
       "icon": "logos/icon-512.png",
-      "artifactName": "${productName}.${ext}"
+      "artifactName": "${productName}-v${version}.${ext}"
     },
     "files": [
       "**/*",

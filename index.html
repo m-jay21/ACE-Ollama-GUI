@@ -543,7 +543,7 @@
       const userMessage = document.createElement('div');
       userMessage.className = 'flex justify-end mb-4';
       const userMessageContent = document.createElement('div');
-      userMessageContent.className = 'bg-gray-900 text-white p-3 rounded-lg whitespace-pre-wrap break-words max-w-[80%]';
+      userMessageContent.className = 'bg-[var(--accent)] text-[var(--bg-primary)] p-3 rounded-lg whitespace-pre-wrap break-words max-w-[80%]';
       userMessageContent.textContent = query;
       userMessage.appendChild(userMessageContent);
       chatWindow.appendChild(userMessage);
@@ -581,7 +581,7 @@
         const aiMessage = document.createElement('div');
         aiMessage.className = 'flex justify-start mb-4 ai-message';
         const aiMessageContent = document.createElement('div');
-        aiMessageContent.className = 'bg-gray-700 text-white p-3 rounded-lg whitespace-pre-wrap break-words max-w-[80%] message-content';
+        aiMessageContent.className = 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] p-3 rounded-lg whitespace-pre-wrap break-words max-w-[80%] message-content';
         aiMessageContent.textContent = data;
         aiMessage.appendChild(aiMessageContent);
         chatWindow.appendChild(aiMessage);
