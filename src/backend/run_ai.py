@@ -1,7 +1,7 @@
 import argparse
 import os
-from aiTool import runData, runImage
-import pdfTool
+from ai_tool import runData, runImage
+import pdf_tool
 
 def main():
     parser = argparse.ArgumentParser(description="Process AI Query with optional file input.")
@@ -17,7 +17,7 @@ def main():
         ext = os.path.splitext(file_path)[1].lower()
         if ext == ".pdf":
             # Extract PDF text and prepend it to the query
-            pdf_text = pdfTool.extract_text_from_pdf(file_path)
+            pdf_text = pdf_tool.extract_text_from_pdf(file_path)
             query = "PDF TEXT:\n" + pdf_text + "\nUSER QUERY:\n" + query
             # Process as a text-based query
             for word in runData(query, args.model):

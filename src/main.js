@@ -7,10 +7,10 @@ const fs = require('fs');
 function getPythonScriptPath(scriptName) {
   if (app.isPackaged) {
     // In production, scripts are in the resources directory
-    return path.join(process.resourcesPath, scriptName);
+    return path.join(process.resourcesPath, 'src', 'backend', scriptName);
   } else {
-    // In development, scripts are in the project root
-    return path.join(__dirname, scriptName);
+    // In development, scripts are in src/backend directory
+    return path.join(__dirname, 'backend', scriptName);
   }
 }
 
@@ -27,16 +27,24 @@ function getPythonPath() {
 function getMessagesFilePath() {
   if (app.isPackaged) {
     // In production, use the resources directory
-    return path.join(process.resourcesPath, 'theMessages.txt');
+    return path.join(process.resourcesPath, 'src', 'data', 'theMessages.txt');
   } else {
-    // In development, use the project root
-    return path.join(__dirname, 'theMessages.txt');
+    // In development, use the data directory within src
+    return path.join(__dirname, 'data', 'theMessages.txt');
   }
 }
 
 // Ensure theMessages.txt exists in the correct location
 function ensureMessagesFileExists() {
   const messagesPath = getMessagesFilePath();
+  const dataDir = path.dirname(messagesPath);
+  
+  // Ensure the data directory exists
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  
+  // Ensure the messages file exists
   if (!fs.existsSync(messagesPath)) {
     fs.writeFileSync(messagesPath, '');
   }
@@ -58,8 +66,8 @@ function createWindow() {
   // Remove the default application menu completely
   Menu.setApplicationMenu(null);
 
-  // Load your index.html file
-  win.loadFile('index.html');
+  // Load your index.html file from renderer directory
+  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
 app.whenReady().then(() => {
@@ -99,7 +107,7 @@ ipcMain.handle('open-file-dialog', async (event) => {
 ipcMain.handle('submit-ai-query', async (event, args) => {
   // args: { query: string, model: string, filePath?: string }
   return new Promise((resolve, reject) => {
-    const scriptPath = getPythonScriptPath('runAI.py');
+    const scriptPath = getPythonScriptPath('run_ai.py');  // Updated name
     console.log('Python script path:', scriptPath);
     
     let scriptArgs = ['-u', scriptPath];
@@ -139,7 +147,7 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
 // IPC handler for downloading a model
 ipcMain.handle('download-model', async (event, modelName) => {
   return new Promise((resolve, reject) => {
-    const scriptPath = getPythonScriptPath('downloadModel.py');
+    const scriptPath = getPythonScriptPath('download_model.py');  // Updated name
     console.log('Python script path:', scriptPath);
     
     const scriptArgs = [
@@ -180,7 +188,7 @@ ipcMain.handle('download-model', async (event, modelName) => {
 // IPC handler for retrieving AI model options
 ipcMain.handle('get-ai-options', async () => {
   return new Promise((resolve, reject) => {
-    const scriptPath = getPythonScriptPath('getAIOptions.py');
+    const scriptPath = getPythonScriptPath('get_ai_options.py');  // Updated name
     console.log('Python script path:', scriptPath);
     
     const pythonProcess = spawn(getPythonPath(), [scriptPath]);
@@ -231,4 +239,4 @@ ipcMain.handle('clear-chat', async () => {
       reject(error);
     }
   });
-});
+}); 

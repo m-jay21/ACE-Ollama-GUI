@@ -1,5 +1,5 @@
 import argparse
-from aiTool import downloadModel
+from ai_tool import downloadModel
 
 def main():
     parser = argparse.ArgumentParser(description="Download a model if not already installed.")

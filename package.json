@@ -1,8 +1,8 @@
 {
   "name": "aces-local-ai",
-  "version": "1.0.1",
+  "version": "4.0.0",
   "description": "**ACE** is a graphical user interface (GUI) for **Ollama**, designed to eliminate the need for command-line usage. This project provides an intuitive interface for users to interact with locally installed AI models.",
-  "main": "main.js",
+  "main": "src/main.js",
   "devDependencies": {
     "electron": "^29.1.0",
     "electron-builder": "^26.0.12"
@@ -35,7 +35,7 @@
       "!logos/*.ai",
       "!__pycache__/**/*",
       "!*.pyc",
-      "!theMessages.txt"
+      "!src/data/theMessages.txt"
     ],
     "directories": {
       "buildResources": "logos",

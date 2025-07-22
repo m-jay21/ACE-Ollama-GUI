@@ -1,0 +1,34 @@
+@font-face {
+  font-family: 'AlbraBlack';
+  src: url('../assets/fonts/FontsFree-Net-AlbraBlack.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'RoSpritendo';
+  src: url('../assets/fonts/RoSpritendoSemiboldBeta-vmVwZ.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Gigrich';
+  src: url('../assets/fonts/GigrichDemo-9MPe5.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'VintageMohai';
+  src: url('../assets/fonts/vintagemohaidemoversionregular-vmlbo.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'HelveticaBold';
+  src: url('../assets/fonts/helvetica-bold.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+} 

@@ -1,6 +1,6 @@
 import json
 import sys
-from aiTool import aiOptions
+from ai_tool import aiOptions
 
 def main():
     try:

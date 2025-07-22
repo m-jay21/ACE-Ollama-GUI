@@ -1,0 +1,83 @@
+/* Theme CSS Custom Properties */
+
+/* Dark Theme */
+.dark {
+  --bg-primary: #111827;
+  --bg-secondary: #1F2937;
+  --bg-tertiary: #374151;
+  --text-primary: #F9FAFB;
+  --text-secondary: #E5E7EB;
+  --accent: #3B82F6;
+}
+
+/* Light Theme */
+.light {
+  --bg-primary: #F3F4F6;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #E5E7EB;
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --accent: #1D4ED8;
+}
+
+/* Nostalgia Theme */
+.nostalgia {
+  --bg-primary: #2E424D;
+  --bg-secondary: #24343C;
+  --bg-tertiary: #1E2B32;
+  --text-primary: #f5eded;
+  --text-secondary: rgba(245, 237, 237, 0.7);
+  --accent: #f5eded;
+}
+
+/* Gold Theme */
+.gold {
+  --bg-primary: #F5F4F0;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #F5F4F0;
+  --text-primary: #1D1D1F;
+  --text-secondary: #7C7C7C;
+  --accent: #D4AF37;
+}
+
+/* Theme-specific gradient text */
+.dark .gradient-text {
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.light .gradient-text {
+  background: linear-gradient(90deg, #1D4ED8, #4F46E5);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.nostalgia .gradient-text {
+  color: #f5eded;
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+}
+
+.gold .gradient-text {
+  background: linear-gradient(90deg, #D4AF37, #B8860B);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Theme-specific glow effects */
+.glow {
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
+}
+
+.nostalgia .glow {
+  box-shadow: 0 0 15px rgba(245, 237, 237, 0.3);
+}
+
+.gold .glow {
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+} 

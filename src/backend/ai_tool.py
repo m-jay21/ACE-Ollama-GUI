@@ -11,10 +11,17 @@ def get_messages_file_path():
     if getattr(sys, 'frozen', False):
         # Running in a bundle (packaged app)
         base_path = os.path.dirname(sys.executable)
-        return os.path.join(base_path, 'resources', 'theMessages.txt')
+        messages_path = os.path.join(base_path, 'resources', 'src', 'data', 'theMessages.txt')
     else:
-        # Running in normal Python environment
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'theMessages.txt')
+        # Running in normal Python environment - go up one level from backend to src, then to data
+        messages_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'theMessages.txt')
+    
+    # Ensure the data directory exists
+    data_dir = os.path.dirname(messages_path)
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir, exist_ok=True)
+    
+    return messages_path
 
 def aiOptions():
     response = ollama.list()
