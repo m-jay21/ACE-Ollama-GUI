@@ -16,11 +16,64 @@ function getPythonScriptPath(scriptName) {
 
 // Helper function to get Python executable path
 function getPythonPath() {
-  if (process.platform === 'win32') {
-    return 'python';  // Windows will use the system Python
+  if (app.isPackaged) {
+    // In production (packaged app), always use system Python
+    if (process.platform === 'win32') {
+      return 'python';
+    } else {
+      return 'python3';
+    }
   } else {
-    return 'python3'; // Unix-like systems typically use python3
+    // In development, try virtual environment first, then fallback to system
+    const venvPython = path.join(__dirname, 'venv', 'bin', 'python');
+    if (fs.existsSync(venvPython)) {
+      console.log('Using virtual environment Python:', venvPython);
+      return venvPython;
+    } else {
+      console.log('Virtual environment not found, using system Python');
+      if (process.platform === 'win32') {
+        return 'python';
+      } else {
+        return 'python3';
+      }
+    }
   }
+}
+
+
+
+// Helper function to validate Python installation
+async function validatePythonInstallation() {
+  return new Promise((resolve, reject) => {
+    const pythonPath = getPythonPath();
+    console.log('Using Python path:', pythonPath);
+    
+    // Test if Python can import the required modules
+    const testProcess = spawn(pythonPath, ['-c', 'import ollama, pymupdf, PIL, tiktoken; print("All modules available")']);
+    
+    testProcess.on('close', (code) => {
+      if (code === 0) {
+        console.log('Python and all required modules validated successfully');
+        resolve(true);
+      } else {
+        reject(new Error(`Python modules not available. Tried: ${pythonPath}. Exit code: ${code}`));
+      }
+    });
+    
+    testProcess.on('error', (error) => {
+      reject(new Error(`Failed to execute Python. Tried: ${pythonPath}. Error: ${error.message}`));
+    });
+    
+    testProcess.stderr.on('data', (data) => {
+      console.error('Python validation stderr:', data.toString());
+    });
+    
+    // Set a timeout
+    setTimeout(() => {
+      testProcess.kill();
+      reject(new Error('Python validation timeout'));
+    }, 10000);
+  });
 }
 
 // Helper function to get the path for theMessages.txt
@@ -31,6 +84,15 @@ function getMessagesFilePath() {
   } else {
     // In development, use the data directory within src
     return path.join(__dirname, 'data', 'theMessages.txt');
+  }
+}
+
+// Helper function to get preload script path
+function getPreloadScriptPath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'src', 'renderer', 'preload.js');
+  } else {
+    return path.join(__dirname, 'renderer', 'preload.js');
   }
 }
 
@@ -50,6 +112,60 @@ function ensureMessagesFileExists() {
   }
 }
 
+// Input validation and sanitization functions
+function validateAndSanitizeInput(input, maxLength = 10000) {
+  if (typeof input !== 'string') {
+    throw new Error('Input must be a string');
+  }
+  
+  if (input.length > maxLength) {
+    throw new Error(`Input too long. Maximum length is ${maxLength} characters`);
+  }
+  
+  // Remove null bytes and other dangerous characters
+  return input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
+function validateAndSanitizeFilePath(filePath) {
+  if (!filePath || typeof filePath !== 'string') {
+    throw new Error('Invalid file path');
+  }
+  
+  // Normalize the path to prevent path traversal attacks
+  const normalizedPath = path.normalize(filePath);
+  
+  // Check for path traversal attempts
+  if (normalizedPath.includes('..') || normalizedPath.includes('~')) {
+    throw new Error('Invalid file path');
+  }
+  
+  // Ensure the file exists
+  if (!fs.existsSync(normalizedPath)) {
+    throw new Error('File does not exist');
+  }
+  
+  // Check file size (limit to 100MB)
+  const stats = fs.statSync(normalizedPath);
+  if (stats.size > 100 * 1024 * 1024) {
+    throw new Error('File too large. Maximum size is 100MB');
+  }
+  
+  return normalizedPath;
+}
+
+function validateModelName(modelName) {
+  if (!modelName || typeof modelName !== 'string') {
+    throw new Error('Invalid model name');
+  }
+  
+  // Only allow alphanumeric characters, hyphens, underscores, and colons
+  if (!/^[a-zA-Z0-9\-_:]+$/.test(modelName)) {
+    throw new Error('Invalid model name format');
+  }
+  
+  return modelName.trim();
+}
+
 // Create the application window
 function createWindow() {
   const win = new BrowserWindow({
@@ -58,8 +174,11 @@ function createWindow() {
     backgroundColor: '#0D4D66',  // Match your dark background
     autoHideMenuBar: true,       // Hide the menu bar by default
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,        // SECURITY: Disable node integration
+      contextIsolation: true,        // SECURITY: Enable context isolation
+      preload: getPreloadScriptPath(), // SECURITY: Use preload script for safe API exposure
+      sandbox: false,                // Required for file system access
+      webSecurity: true,             // SECURITY: Enable web security
     },
   });
 
@@ -70,15 +189,57 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
-app.whenReady().then(() => {
-  // Ensure theMessages.txt exists when the app starts
-  ensureMessagesFileExists();
-  createWindow();
+app.whenReady().then(async () => {
+  try {
+    // Validate Python installation
+    await validatePythonInstallation();
+    console.log('Python installation validated successfully');
+    
+    // Ensure theMessages.txt exists when the app starts
+    ensureMessagesFileExists();
+    createWindow();
 
-  // Re-create window on macOS when dock icon is clicked.
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+    // Re-create window on macOS when dock icon is clicked.
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  } catch (error) {
+    console.error('Python validation failed:', error);
+    
+    // Create a window to show the error
+    const errorWindow = new BrowserWindow({
+      width: 600,
+      height: 400,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: getPreloadScriptPath(),
+      },
+    });
+    
+    errorWindow.loadURL(`data:text/html,
+      <html>
+        <body style="font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5;">
+          <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2 style="color: #e74c3c; margin-bottom: 20px;">Python Installation Error</h2>
+            <p style="color: #333; margin-bottom: 15px;">ACE requires Python to be installed and accessible from the command line.</p>
+            <p style="color: #666; margin-bottom: 20px;"><strong>Error:</strong> ${error.message}</p>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+              <h4 style="margin-top: 0;">To fix this:</h4>
+              <ol style="margin: 0; padding-left: 20px;">
+                <li>Install Python from <a href="https://python.org" target="_blank">python.org</a></li>
+                <li>Make sure Python is added to your system PATH</li>
+                <li>Restart the application</li>
+              </ol>
+            </div>
+            <button onclick="window.close()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
+              Close
+            </button>
+          </div>
+        </body>
+      </html>
+    `);
+  }
 });
 
 // Quit the app when all windows are closed (except on macOS).
@@ -105,104 +266,165 @@ ipcMain.handle('open-file-dialog', async (event) => {
 
 // IPC handler for submitting an AI query
 ipcMain.handle('submit-ai-query', async (event, args) => {
-  // args: { query: string, model: string, filePath?: string }
-  return new Promise((resolve, reject) => {
-    const scriptPath = getPythonScriptPath('run_ai.py');  // Updated name
-    console.log('Python script path:', scriptPath);
+  try {
+    // Validate and sanitize inputs
+    const query = validateAndSanitizeInput(args.query, 50000); // Allow longer queries for AI
+    const model = validateModelName(args.model);
+    let filePath = null;
     
-    let scriptArgs = ['-u', scriptPath];
-
-    // Pass query and model arguments to the Python script.
-    scriptArgs.push('--query', args.query);
-    scriptArgs.push('--model', args.model);
-
-    // If a file was uploaded, pass its path.
     if (args.filePath) {
-      scriptArgs.push('--file', args.filePath);
+      filePath = validateAndSanitizeFilePath(args.filePath);
     }
 
-    // Spawn the Python process.
-    const pythonProcess = spawn(getPythonPath(), scriptArgs);
+    return new Promise((resolve, reject) => {
+      const scriptPath = getPythonScriptPath('run_ai.py');
+      console.log('Python script path:', scriptPath);
+      
+      let scriptArgs = ['-u', scriptPath];
 
-    let fullResponse = '';
+      // Pass validated query and model arguments to the Python script.
+      scriptArgs.push('--query', query);
+      scriptArgs.push('--model', model);
 
-    // Stream data back to the renderer
-    pythonProcess.stdout.on('data', (data) => {
-      const text = data.toString();
-      fullResponse += text;
-      // Send each chunk back to the renderer for live update.
-      event.sender.send('ai-stream', text);
+      // If a file was uploaded, pass its validated path.
+      if (filePath) {
+        scriptArgs.push('--file', filePath);
+      }
+
+      // Spawn the Python process with timeout
+      const pythonProcess = spawn(getPythonPath(), scriptArgs);
+      
+      // Set timeout for the process (5 minutes)
+      const timeout = setTimeout(() => {
+        pythonProcess.kill('SIGTERM');
+        reject(new Error('Request timeout - process took too long'));
+      }, 5 * 60 * 1000);
+
+      let fullResponse = '';
+
+      // Stream data back to the renderer
+      pythonProcess.stdout.on('data', (data) => {
+        const text = data.toString();
+        fullResponse += text;
+        // Send each chunk back to the renderer for live update.
+        event.sender.send('ai-stream', text);
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        console.error(`stderr: ${data}`);
+      });
+
+      pythonProcess.on('close', (code) => {
+        clearTimeout(timeout);
+        if (code === 0) {
+          resolve(fullResponse);
+        } else {
+          reject(new Error(`Python process exited with code ${code}`));
+        }
+      });
+
+      pythonProcess.on('error', (error) => {
+        clearTimeout(timeout);
+        reject(new Error(`Failed to start Python process: ${error.message}`));
+      });
     });
-
-    pythonProcess.stderr.on('data', (data) => {
-      console.error(`stderr: ${data}`);
-    });
-
-    pythonProcess.on('close', (code) => {
-      resolve(fullResponse);
-    });
-  });
+  } catch (error) {
+    console.error('Error in submit-ai-query:', error);
+    throw error;
+  }
 });
 
 // IPC handler for downloading a model
 ipcMain.handle('download-model', async (event, modelName) => {
-  return new Promise((resolve, reject) => {
-    const scriptPath = getPythonScriptPath('download_model.py');  // Updated name
-    console.log('Python script path:', scriptPath);
+  try {
+    // Validate and sanitize model name
+    const validatedModelName = validateModelName(modelName);
     
-    const scriptArgs = [
-      '-u',
-      scriptPath,
-      '--model',
-      modelName,
-    ];
-    const pythonProcess = spawn(getPythonPath(), scriptArgs);
+    return new Promise((resolve, reject) => {
+      const scriptPath = getPythonScriptPath('download_model.py');
+      console.log('Python script path:', scriptPath);
+      
+      const scriptArgs = [
+        '-u',
+        scriptPath,
+        '--model',
+        validatedModelName,
+      ];
+      
+      const pythonProcess = spawn(getPythonPath(), scriptArgs);
+      
+      // Set timeout for download process (30 minutes)
+      const timeout = setTimeout(() => {
+        pythonProcess.kill('SIGTERM');
+        reject(new Error('Download timeout - process took too long'));
+      }, 30 * 60 * 1000);
 
-    pythonProcess.stdout.on('data', (data) => {
-      data.toString().split('\n').forEach(line => {
-        if (line.trim()) {
-          try {
-            const progress = JSON.parse(line);
-            // Send progress to renderer
-            event.sender.send('download-progress', progress);
-            if (progress.progress === 100 || progress.status === "Cannot be installed") {
-              resolve(progress);
+      pythonProcess.stdout.on('data', (data) => {
+        data.toString().split('\n').forEach(line => {
+          if (line.trim()) {
+            try {
+              const progress = JSON.parse(line);
+              // Send progress to renderer
+              event.sender.send('download-progress', progress);
+              if (progress.progress === 100 || progress.status === "Cannot be installed") {
+                clearTimeout(timeout);
+                resolve(progress);
+              }
+            } catch (e) {
+              console.error('Error parsing download progress:', e);
             }
-          } catch (e) {}
+          }
+        });
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        console.error('Download stderr:', data.toString());
+      });
+
+      pythonProcess.on('close', (code) => {
+        clearTimeout(timeout);
+        if (code !== 0) {
+          reject(new Error(`Download process exited with code ${code}`));
         }
       });
-    });
 
-    pythonProcess.stderr.on('data', (data) => {
-      reject(new Error(data.toString()));
+      pythonProcess.on('error', (error) => {
+        clearTimeout(timeout);
+        reject(new Error(`Failed to start download process: ${error.message}`));
+      });
     });
-
-    pythonProcess.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(`Process exited with code ${code}`));
-      }
-    });
-  });
+  } catch (error) {
+    console.error('Error in download-model:', error);
+    throw error;
+  }
 });
 
 // IPC handler for retrieving AI model options
 ipcMain.handle('get-ai-options', async () => {
   return new Promise((resolve, reject) => {
-    const scriptPath = getPythonScriptPath('get_ai_options.py');  // Updated name
+    const scriptPath = getPythonScriptPath('get_ai_options.py');
     console.log('Python script path:', scriptPath);
     
     const pythonProcess = spawn(getPythonPath(), [scriptPath]);
     let data = '';
+    
+    // Set timeout for the process (30 seconds)
+    const timeout = setTimeout(() => {
+      pythonProcess.kill('SIGTERM');
+      console.error('get-ai-options timeout');
+      resolve(["No models found"]);
+    }, 30 * 1000);
 
     pythonProcess.stdout.on('data', (chunk) => {
       data += chunk;
     });
 
     pythonProcess.stderr.on('data', (data) => {
-      console.error(`stderr: ${data}`);
+      console.error(`get-ai-options stderr: ${data}`);
     });
 
     pythonProcess.on('close', (code) => {
+      clearTimeout(timeout);
       try {
         if (!data.trim()) {
           // If no data was received, return "No models found"
@@ -219,7 +441,8 @@ ipcMain.handle('get-ai-options', async () => {
     });
 
     pythonProcess.on('error', (err) => {
-      console.error('Error spawning Python process:', err);
+      clearTimeout(timeout);
+      console.error('Error spawning Python process for get-ai-options:', err);
       // Return "No models found" on error
       resolve(["No models found"]);
     });

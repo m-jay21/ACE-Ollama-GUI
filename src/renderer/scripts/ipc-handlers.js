@@ -1,5 +1,3 @@
-const { ipcRenderer } = require('electron');
-
 class IPCHandlers {
   constructor(chatManager, uiManager) {
     this.chatManager = chatManager;
@@ -8,13 +6,13 @@ class IPCHandlers {
   }
 
   init() {
-    // Listen for AI streaming responses
-    ipcRenderer.on('ai-stream', (event, data) => {
+    // Listen for AI streaming responses using the secure API
+    window.electronAPI.onAIStream((data) => {
       this.chatManager.handleAIStream(data);
     });
 
-    // Listen for model download progress
-    ipcRenderer.on('download-progress', (event, progress) => {
+    // Listen for model download progress using the secure API
+    window.electronAPI.onDownloadProgress((progress) => {
       this.uiManager.updateDownloadProgress(progress);
     });
   }
@@ -22,7 +20,7 @@ class IPCHandlers {
   // AI Operations
   async getAIOptions() {
     try {
-      return await ipcRenderer.invoke('get-ai-options');
+      return await window.electronAPI.getAIOptions();
     } catch (error) {
       console.error("Error fetching AI options:", error);
       return ["No models found"];
@@ -31,7 +29,7 @@ class IPCHandlers {
 
   async submitAIQuery(query, model, filePath = '') {
     try {
-      return await ipcRenderer.invoke('submit-ai-query', {
+      return await window.electronAPI.submitAIQuery({
         query,
         model,
         filePath
@@ -44,7 +42,7 @@ class IPCHandlers {
 
   async downloadModel(modelName) {
     try {
-      return await ipcRenderer.invoke('download-model', modelName);
+      return await window.electronAPI.downloadModel(modelName);
     } catch (error) {
       console.error("Error downloading model:", error);
       throw error;
@@ -54,7 +52,7 @@ class IPCHandlers {
   // File Operations
   async openFileDialog() {
     try {
-      return await ipcRenderer.invoke('open-file-dialog');
+      return await window.electronAPI.openFileDialog();
     } catch (error) {
       console.error("Error opening file dialog:", error);
       return null;
@@ -64,11 +62,17 @@ class IPCHandlers {
   // Chat Operations
   async clearChat() {
     try {
-      return await ipcRenderer.invoke('clear-chat');
+      return await window.electronAPI.clearChat();
     } catch (error) {
       console.error('Error clearing chat:', error);
       throw error;
     }
+  }
+
+  // Cleanup method to remove listeners
+  cleanup() {
+    window.electronAPI.removeAllListeners('ai-stream');
+    window.electronAPI.removeAllListeners('download-progress');
   }
 }
 
