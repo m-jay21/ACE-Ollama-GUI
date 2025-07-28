@@ -363,9 +363,11 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
       scriptArgs.push('--query', query);
       scriptArgs.push('--model', model);
 
-      // If a file was uploaded, pass its validated path.
+      // If a file was uploaded, pass its validated path and enable enhanced chunking
       if (filePath) {
         scriptArgs.push('--file', filePath);
+        // Enable enhanced document chunking for better processing
+        scriptArgs.push('--use-chunking');
     }
 
       // Spawn the Python process with timeout

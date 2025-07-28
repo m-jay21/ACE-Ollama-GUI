@@ -102,7 +102,13 @@ class ChatManager {
         
         // Show user feedback about selected file
         const fileName = filePath.split(/[\\/]/).pop(); // Get filename from path
-        this.showUserFeedback(`File selected: ${fileName}`, "success");
+        const fileExt = fileName.split('.').pop().toLowerCase();
+        
+        if (fileExt === 'pdf') {
+          this.showUserFeedback(`PDF selected: ${fileName} (Enhanced processing enabled)`, "success");
+        } else {
+          this.showUserFeedback(`File selected: ${fileName}`, "success");
+        }
       }
     } catch (error) {
       console.error("Error in file upload:", error);

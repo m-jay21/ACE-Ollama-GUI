@@ -5,7 +5,9 @@
 
 ## **Features**
 - **Modern UI**: Clean, responsive interface with customizable themes
-- **PDF Processing**: Upload and analyze PDFs with enhanced formatting
+- **Enhanced PDF Processing**: Upload and analyze PDFs with intelligent document chunking and preprocessing
+- **Document Chunking**: Advanced text preprocessing and intelligent document splitting for better AI responses
+- **RAG Pipeline**: Retrieval-Augmented Generation foundation for context-aware AI interactions
 - **Image Processing**: Upload and analyze images with improved preview
 - **Model Selection**: Intuitive model selection with real-time status indicators
 - **Install New Models**: One-click installation of compatible Ollama models
@@ -47,7 +49,7 @@ cd ACE-Ollama-GUI
 #### **2. Install Dependencies**
 ```sh
 # Install Python dependencies
-pip install ollama pymupdf pillow tiktoken
+pip install -r requirements.txt
 
 # Install Node.js dependencies
 npm install
@@ -78,9 +80,16 @@ DFA9935EFE93010F92BA76CC6037BC41852A2F9D6DC4E08D2155BF59B47BE88E
 ## **Usage**
 1. **Launch ACE**
 2. **Select an installed AI model** or install a new one from the **Settings** tab
-3. **Upload PDFs or images** for processing
-4. **Enter prompts** and receive real-time responses
+3. **Upload PDFs or images** for processing (PDFs use enhanced chunking automatically)
+4. **Enter prompts** and receive real-time responses with context-aware AI interactions
 5. Use the **Clear Chat** button to start a new conversation
+
+### **Enhanced PDF Processing**
+ACE now features intelligent document chunking and preprocessing:
+- **Document Chunking**: PDFs are automatically split into meaningful chunks
+- **Text Preprocessing**: Clean and normalize text for better AI understanding
+- **Context-Aware Responses**: AI receives relevant document sections instead of entire text
+- **RAG Pipeline**: Foundation for retrieval-augmented generation
 
 ---
 
