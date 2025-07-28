@@ -63,5 +63,8 @@
   "bugs": {
     "url": "https://github.com/m-jay21/ACE-Ollama-GUI/issues"
   },
-  "homepage": "https://github.com/m-jay21/ACE-Ollama-GUI#readme"
+  "homepage": "https://github.com/m-jay21/ACE-Ollama-GUI#readme",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
 }

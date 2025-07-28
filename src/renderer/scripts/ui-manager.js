@@ -154,11 +154,31 @@ class UIManager {
 
   // Download progress handling
   updateDownloadProgress(progress) {
+    // Update progress bar
     this.progressBar.style.width = `${progress.progress}%`;
+    
+    // Update status text with enhanced information
     this.progressText.textContent = progress.status;
+    
+    // Update percentage display
     this.progressPercentage.textContent = `${progress.progress}%`;
+    
+    // Add stage-based styling
+    this.progressBar.className = 'bg-[var(--accent)] h-2.5 rounded-full transition-all duration-300';
+    
+    // Color coding based on stage
+    if (progress.stage === 'error') {
+      this.progressBar.classList.add('bg-red-500');
+    } else if (progress.stage === 'complete') {
+      this.progressBar.classList.add('bg-green-500');
+    } else if (progress.stage === 'downloading layers') {
+      this.progressBar.classList.add('bg-blue-500');
+    } else {
+      this.progressBar.classList.add('bg-[var(--accent)]');
+    }
 
-    if (progress.progress === 100) {
+    // Handle completion
+    if (progress.progress === 100 || progress.stage === 'complete') {
       this.downloadResponse.textContent = "Model installed successfully!";
       this.downloadResponse.classList.remove('hidden');
       this.downloadProgress.classList.add('hidden');

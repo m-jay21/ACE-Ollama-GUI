@@ -6,8 +6,8 @@ def main():
     parser.add_argument('--model', type=str, required=True, help="The model name to download")
     
     args = parser.parse_args()
-    result = downloadModel(args.model)
-    print(result, flush=True)
+    # downloadModel() prints JSON directly, doesn't return anything
+    downloadModel(args.model)
 
 if __name__ == "__main__":
     main()

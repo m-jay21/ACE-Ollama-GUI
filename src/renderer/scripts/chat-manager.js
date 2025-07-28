@@ -166,9 +166,9 @@ class ChatManager {
       }
 
       // Handle download result
-      if (parsedResult.status === "Cannot be installed") {
+      if (parsedResult.status === "Cannot be installed" || parsedResult.stage === "error") {
         this.showDownloadError("Failed to install model. Please check if the model name is correct and try again.");
-      } else if (parsedResult.status === "Installed" || parsedResult.progress === 100) {
+      } else if (parsedResult.status === "Model installed successfully!" || parsedResult.stage === "complete" || parsedResult.progress === 100) {
         this.showDownloadSuccess();
         
         // Refresh model list after successful download

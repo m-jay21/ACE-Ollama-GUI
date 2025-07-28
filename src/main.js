@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const http = require('http');
 
 // Helper function to get the correct path for Python scripts
 function getPythonScriptPath(scriptName) {
@@ -18,7 +19,7 @@ function getPythonScriptPath(scriptName) {
 function getPythonPath() {
   if (app.isPackaged) {
     // In production (packaged app), always use system Python
-    if (process.platform === 'win32') {
+  if (process.platform === 'win32') {
       return 'python';
     } else {
       return 'python3';
@@ -112,6 +113,72 @@ function ensureMessagesFileExists() {
   }
 }
 
+// Helper function to check if Ollama is running
+async function isOllamaRunning() {
+  return new Promise((resolve) => {
+    const req = http.get('http://127.0.0.1:11434/api/tags', (res) => {
+      resolve(res.statusCode === 200);
+    });
+    
+    req.on('error', () => {
+      resolve(false);
+    });
+    
+    req.setTimeout(3000, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+// Helper function to start Ollama server
+function startOllamaServer() {
+  console.log('Starting Ollama server...');
+  
+  // Start Ollama in detached mode (background process)
+  const ollamaProcess = spawn('ollama', ['serve'], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  
+  // Don't wait for the process - let it run in background
+  ollamaProcess.unref();
+  
+  console.log('Ollama server started in background');
+  return ollamaProcess;
+}
+
+// Helper function to ensure Ollama is running
+async function ensureOllamaRunning() {
+  try {
+    // First check if Ollama is already running
+    if (await isOllamaRunning()) {
+      console.log('Ollama server is already running');
+      return true;
+    }
+    
+    // Ollama not running - start it
+    console.log('Ollama server not running, starting it...');
+    startOllamaServer();
+    
+    // Wait for Ollama to start (check every 500ms for up to 10 seconds)
+    for (let i = 0; i < 20; i++) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (await isOllamaRunning()) {
+        console.log('Ollama server started successfully');
+        return true;
+      }
+    }
+    
+    console.error('Failed to start Ollama server within timeout');
+    return false;
+  } catch (error) {
+    console.error('Error ensuring Ollama is running:', error);
+    return false;
+  }
+}
+
 // Input validation and sanitization functions
 function validateAndSanitizeInput(input, maxLength = 10000) {
   if (typeof input !== 'string') {
@@ -154,16 +221,23 @@ function validateAndSanitizeFilePath(filePath) {
 }
 
 function validateModelName(modelName) {
+  console.log('Validating model name:', JSON.stringify(modelName));
+  console.log('Model name type:', typeof modelName);
+  console.log('Model name length:', modelName ? modelName.length : 'null');
+  
   if (!modelName || typeof modelName !== 'string') {
     throw new Error('Invalid model name');
   }
   
-  // Only allow alphanumeric characters, hyphens, underscores, and colons
-  if (!/^[a-zA-Z0-9\-_:]+$/.test(modelName)) {
+  // Only allow alphanumeric characters, hyphens, underscores, colons, and dots
+  if (!/^[a-zA-Z0-9\-_:.]+$/.test(modelName)) {
+    console.log('Model name failed regex test. Allowed chars: a-zA-Z0-9\\-_:.');
     throw new Error('Invalid model name format');
   }
   
-  return modelName.trim();
+  const trimmed = modelName.trim();
+  console.log('Validated model name:', JSON.stringify(trimmed));
+  return trimmed;
 }
 
 // Create the application window
@@ -194,6 +268,9 @@ app.whenReady().then(async () => {
     // Validate Python installation
     await validatePythonInstallation();
     console.log('Python installation validated successfully');
+    
+    // Ensure Ollama is running
+    await ensureOllamaRunning();
     
     // Ensure theMessages.txt exists when the app starts
     ensureMessagesFileExists();
@@ -276,11 +353,11 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
       filePath = validateAndSanitizeFilePath(args.filePath);
     }
 
-    return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
       const scriptPath = getPythonScriptPath('run_ai.py');
-      console.log('Python script path:', scriptPath);
-      
-      let scriptArgs = ['-u', scriptPath];
+    console.log('Python script path:', scriptPath);
+    
+    let scriptArgs = ['-u', scriptPath];
 
       // Pass validated query and model arguments to the Python script.
       scriptArgs.push('--query', query);
@@ -289,10 +366,10 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
       // If a file was uploaded, pass its validated path.
       if (filePath) {
         scriptArgs.push('--file', filePath);
-      }
+    }
 
       // Spawn the Python process with timeout
-      const pythonProcess = spawn(getPythonPath(), scriptArgs);
+    const pythonProcess = spawn(getPythonPath(), scriptArgs);
       
       // Set timeout for the process (5 minutes)
       const timeout = setTimeout(() => {
@@ -300,24 +377,24 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
         reject(new Error('Request timeout - process took too long'));
       }, 5 * 60 * 1000);
 
-      let fullResponse = '';
+    let fullResponse = '';
 
-      // Stream data back to the renderer
-      pythonProcess.stdout.on('data', (data) => {
-        const text = data.toString();
-        fullResponse += text;
-        // Send each chunk back to the renderer for live update.
-        event.sender.send('ai-stream', text);
-      });
+    // Stream data back to the renderer
+    pythonProcess.stdout.on('data', (data) => {
+      const text = data.toString();
+      fullResponse += text;
+      // Send each chunk back to the renderer for live update.
+      event.sender.send('ai-stream', text);
+    });
 
-      pythonProcess.stderr.on('data', (data) => {
-        console.error(`stderr: ${data}`);
-      });
+    pythonProcess.stderr.on('data', (data) => {
+      console.error(`stderr: ${data}`);
+    });
 
-      pythonProcess.on('close', (code) => {
+    pythonProcess.on('close', (code) => {
         clearTimeout(timeout);
         if (code === 0) {
-          resolve(fullResponse);
+      resolve(fullResponse);
         } else {
           reject(new Error(`Python process exited with code ${code}`));
         }
@@ -326,8 +403,8 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
       pythonProcess.on('error', (error) => {
         clearTimeout(timeout);
         reject(new Error(`Failed to start Python process: ${error.message}`));
-      });
     });
+  });
   } catch (error) {
     console.error('Error in submit-ai-query:', error);
     throw error;
@@ -337,21 +414,22 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
 // IPC handler for downloading a model
 ipcMain.handle('download-model', async (event, modelName) => {
   try {
+    console.log('Download request for model:', JSON.stringify(modelName));
     // Validate and sanitize model name
     const validatedModelName = validateModelName(modelName);
     
-    return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
       const scriptPath = getPythonScriptPath('download_model.py');
-      console.log('Python script path:', scriptPath);
-      
-      const scriptArgs = [
-        '-u',
-        scriptPath,
-        '--model',
+    console.log('Python script path:', scriptPath);
+    
+    const scriptArgs = [
+      '-u',
+      scriptPath,
+      '--model',
         validatedModelName,
-      ];
+    ];
       
-      const pythonProcess = spawn(getPythonPath(), scriptArgs);
+    const pythonProcess = spawn(getPythonPath(), scriptArgs);
       
       // Set timeout for download process (30 minutes)
       const timeout = setTimeout(() => {
@@ -359,40 +437,46 @@ ipcMain.handle('download-model', async (event, modelName) => {
         reject(new Error('Download timeout - process took too long'));
       }, 30 * 60 * 1000);
 
-      pythonProcess.stdout.on('data', (data) => {
-        data.toString().split('\n').forEach(line => {
-          if (line.trim()) {
-            try {
-              const progress = JSON.parse(line);
-              // Send progress to renderer
-              event.sender.send('download-progress', progress);
-              if (progress.progress === 100 || progress.status === "Cannot be installed") {
-                clearTimeout(timeout);
-                resolve(progress);
-              }
-            } catch (e) {
-              console.error('Error parsing download progress:', e);
+        pythonProcess.stdout.on('data', (data) => {
+      data.toString().split('\n').forEach(line => {
+        if (line.trim()) {
+          try {
+            const progress = JSON.parse(line);
+            // Send progress to renderer
+            event.sender.send('download-progress', progress);
+            if (progress.progress === 100 || progress.status === "Cannot be installed" || progress.stage === "complete") {
+              clearTimeout(timeout);
+              resolve(progress);
             }
+          } catch (e) {
+            console.error('Error parsing download progress:', e, 'Raw line:', line);
+            // Send error progress to frontend
+            event.sender.send('download-progress', {
+              status: "Error parsing progress data",
+              progress: 0,
+              stage: "error"
+            });
           }
-        });
-      });
-
-      pythonProcess.stderr.on('data', (data) => {
-        console.error('Download stderr:', data.toString());
-      });
-
-      pythonProcess.on('close', (code) => {
-        clearTimeout(timeout);
-        if (code !== 0) {
-          reject(new Error(`Download process exited with code ${code}`));
         }
+      });
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+        console.error('Download stderr:', data.toString());
+    });
+
+    pythonProcess.on('close', (code) => {
+        clearTimeout(timeout);
+      if (code !== 0) {
+          reject(new Error(`Download process exited with code ${code}`));
+      }
       });
 
       pythonProcess.on('error', (error) => {
         clearTimeout(timeout);
         reject(new Error(`Failed to start download process: ${error.message}`));
-      });
     });
+  });
   } catch (error) {
     console.error('Error in download-model:', error);
     throw error;

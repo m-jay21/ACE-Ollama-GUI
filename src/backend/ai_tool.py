@@ -93,54 +93,136 @@ def downloadModel(model_name):
             return
         
         start_time = time.time()
-        last_progress = 0
+        layers_downloaded = 0
+        total_layers = 0
+        current_stage = "initializing"
+        
+        # Stage-based progress mapping
+        stage_progress = {
+            "initializing": 5,
+            "pulling manifest": 10,
+            "downloading layers": 50,
+            "verifying": 90,
+            "writing manifest": 95,
+            "complete": 100
+        }
+        
         process = subprocess.Popen(
             ['ollama', 'pull', model_name],
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True
+            stderr=subprocess.STDOUT,  # Redirect stderr to stdout
+            universal_newlines=True,
+            bufsize=1  # Line buffered
         )
         
+        # Add timeout for the entire download process
+        start_time = time.time()
+        timeout_seconds = 600  # 10 minutes timeout
+        
         while True:
+            # Check for timeout
+            if time.time() - start_time > timeout_seconds:
+                process.kill()
+                print(json.dumps({"status": "Download timeout - taking too long", "progress": 0, "stage": "error"}))
+                sys.stdout.flush()
+                return
+                
             line = process.stdout.readline()
             if not line and process.poll() is not None:
                 break
             if line:
-                # Extract percentage from any line
-                match = re.search(r'(\d+)%', line)
-                if match:
-                    current_progress = int(match.group(1))
-                    last_progress = current_progress
-                else:
-                    current_progress = last_progress
-                # Time estimate
-                elapsed = time.time() - start_time
-                if current_progress > 0 and current_progress < 100:
-                    est_total = elapsed / (current_progress / 100)
-                    est_remaining = est_total - elapsed
-                    if est_remaining > 60:
-                        mins = int(est_remaining // 60)
-                        secs = int(est_remaining % 60)
-                        time_estimate = f" (Est. {mins}m {secs}s left)"
+                line = line.strip()
+                
+                # Parse different types of Ollama output
+                if "pulling manifest" in line:
+                    if current_stage != "pulling manifest":  # Only log once
+                        current_stage = "pulling manifest"
+                        progress = stage_progress[current_stage]
+                        status = "Pulling model manifest..."
+                    
+                elif "pulling " in line and ":" in line and "%" in line:
+                    # Parse layer download: "pulling dde5aa3fc5ff: 100% ▕███████████████████████████████████████████████████████████████▏ 2.0 GB"
+                    current_stage = "downloading layers"
+                    
+                    # Extract layer info
+                    layer_match = re.search(r'pulling ([a-f0-9]+): (\d+)%', line)
+                    if layer_match:
+                        layer_id = layer_match.group(1)[:8]  # Short hash
+                        layer_progress = int(layer_match.group(2))
+                        
+                        # Extract file size if available
+                        size_match = re.search(r'(\d+\.?\d*)\s*(GB|MB|KB|B)', line)
+                        if size_match:
+                            size = size_match.group(1)
+                            unit = size_match.group(2)
+                            file_size = f"{size} {unit}"
+                        else:
+                            file_size = ""
+                        
+                        # Calculate overall progress (layers are ~50% of total download)
+                        base_progress = stage_progress["downloading layers"]
+                        layer_progress_contribution = (layer_progress / 100) * 30  # 30% for layers
+                        progress = base_progress + layer_progress_contribution
+                        
+                        if layer_progress == 100:
+                            layers_downloaded += 1
+                            status = f"Downloaded layer {layers_downloaded}: {file_size}"
+                        else:
+                            status = f"Downloading layer: {file_size} ({layer_progress}%)"
                     else:
-                        time_estimate = f" (Est. {int(est_remaining)}s left)"
+                        progress = stage_progress[current_stage]
+                        status = "Downloading model layers..."
+                        
+                elif "verifying sha256 digest" in line:
+                    current_stage = "verifying"
+                    progress = stage_progress[current_stage]
+                    status = "Verifying model integrity..."
+                    
+                elif "writing manifest" in line:
+                    current_stage = "writing manifest"
+                    progress = stage_progress[current_stage]
+                    status = "Writing model manifest..."
+                    
+                elif "success" in line:
+                    current_stage = "complete"
+                    progress = stage_progress[current_stage]
+                    status = "Model installed successfully!"
+                    
                 else:
-                    time_estimate = ""
+                    # Default case - use current stage progress
+                    progress = stage_progress.get(current_stage, 0)
+                    status = line
+                
+                # Time estimate (only show for active downloads)
+                time_estimate = ""
+                if current_stage == "downloading layers" and progress > 10:
+                    elapsed = time.time() - start_time
+                    if elapsed > 0:
+                        est_total = elapsed / (progress / 100)
+                        est_remaining = est_total - elapsed
+                        if est_remaining > 60:
+                            mins = int(est_remaining // 60)
+                            secs = int(est_remaining % 60)
+                            time_estimate = f" (Est. {mins}m {secs}s left)"
+                        else:
+                            time_estimate = f" (Est. {int(est_remaining)}s left)"
+                
                 print(json.dumps({
-                    "status": f"{line.strip()}{time_estimate}",
-                    "progress": current_progress
+                    "status": f"{status}{time_estimate}",
+                    "progress": int(progress),
+                    "stage": current_stage
                 }))
                 sys.stdout.flush()
         
         if process.returncode == 0:
-            print(json.dumps({"status": "Installed", "progress": 100}))
+            print(json.dumps({"status": "Model installed successfully!", "progress": 100, "stage": "complete"}))
             sys.stdout.flush()
         else:
-            print(json.dumps({"status": "Cannot be installed", "progress": 0}))
+            print(json.dumps({"status": "Cannot be installed", "progress": 0, "stage": "error"}))
             sys.stdout.flush()
     except Exception as e:
         logger.error(f"Error downloading model {model_name}: {e}")
-        print(json.dumps({"status": "Cannot be installed", "progress": 0}))
+        print(json.dumps({"status": "Cannot be installed", "progress": 0, "stage": "error"}))
         sys.stdout.flush()
 
 #estimate tokens in a list of messages
