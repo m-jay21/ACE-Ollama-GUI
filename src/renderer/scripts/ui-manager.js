@@ -123,6 +123,9 @@ class UIManager {
 
   showSpinner() {
     this.loadingSpinner.classList.remove('hidden');
+    // Position spinner at the bottom of chat
+    this.loadingSpinner.style.order = '999';
+    this.autoScroll();
   }
   
   hideSpinner() {
@@ -217,7 +220,8 @@ class UIManager {
     // Re-add loading spinner
     const loadingSpinner = document.createElement('div');
     loadingSpinner.id = 'loading-spinner';
-    loadingSpinner.className = 'hidden mx-auto my-4 w-8 h-8 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin';
+    loadingSpinner.className = 'hidden flex justify-center items-center py-4';
+    loadingSpinner.innerHTML = '<div class="w-8 h-8 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin"></div>';
     this.chatWindow.appendChild(loadingSpinner);
     this.loadingSpinner = loadingSpinner;
   }

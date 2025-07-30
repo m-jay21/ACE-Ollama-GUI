@@ -11,7 +11,7 @@ import logging
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from document_processor import DocumentProcessor
-from pdf_enhanced import EnhancedPDFProcessor
+from enhanced_pdf_processor import EnhancedPDFProcessor
 from rag_pipeline import RAGPipeline
 
 # Set up logging

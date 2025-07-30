@@ -46,8 +46,8 @@ def validate_model_name(model_name):
     if not isinstance(model_name, str):
         raise ValueError("Model name must be a string")
     
-    # Only allow alphanumeric characters, hyphens, underscores, and colons
-    if not re.match(r'^[a-zA-Z0-9\-_:]+$', model_name):
+    # Allow alphanumeric characters, hyphens, underscores, colons, and dots
+    if not re.match(r'^[a-zA-Z0-9\-_:.]+$', model_name):
         raise ValueError("Invalid model name format")
     
     return model_name.strip()

@@ -3,9 +3,12 @@ import os
 import sys
 import logging
 from ai_tool import runData, runImage, validate_input, validate_model_name
-import pdf_tool
-from pdf_enhanced import EnhancedPDFProcessor
+import legacy_pdf_tool as pdf_tool
+from enhanced_pdf_processor import EnhancedPDFProcessor
 from rag_pipeline import RAGPipeline
+from document_loader import DocumentLoader
+from document_processor import DocumentProcessor
+from token_tracker import TokenTracker
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -25,56 +28,159 @@ def validate_file_path(file_path):
     
     # Check file extension
     ext = os.path.splitext(file_path)[1].lower()
-    allowed_extensions = ['.pdf', '.png', '.jpg', '.jpeg', '.bmp', '.gif']
+    allowed_extensions = ['.pdf', '.txt', '.md', '.csv', '.json', '.docx', '.doc', '.png', '.jpg', '.jpeg', '.bmp', '.gif']
     
     if ext not in allowed_extensions:
         raise ValueError(f"Unsupported file type: {ext}. Supported types: {', '.join(allowed_extensions)}")
     
     return file_path
 
-def process_pdf_with_chunking(file_path: str, query: str, model: str):
-    """Process PDF using enhanced chunking and RAG pipeline"""
+def process_document_with_enhanced_rag(file_path: str, query: str, model: str):
+    """Process any supported document using enhanced RAG with semantic search, vector embeddings, and dynamic prompt construction"""
     try:
-        # Initialize enhanced PDF processor
-        pdf_processor = EnhancedPDFProcessor()
+        # Initialize token tracker
+        token_tracker = TokenTracker(model)
+        start_time = token_tracker.start_tracking()
         
-        # Extract and chunk the PDF
-        print("Processing document chunks...", flush=True)
-        chunks = pdf_processor.extract_with_structure(file_path)
+        # Initialize document loader
+        loader = DocumentLoader()
         
-        if not chunks:
-            print("Warning: No content could be extracted from the PDF.", flush=True)
+        # Load document content
+        print("*Loading document...*", flush=True)
+        doc_data = loader.load_document(file_path)
+        content = doc_data['content']
+        metadata = doc_data['metadata']
+        
+        if not content or content.strip() == "":
+            print("*Warning: No content could be extracted from the document.*", flush=True)
             return
         
-        # Get processing statistics
-        stats = pdf_processor.get_processing_statistics(chunks)
-        print(f"Document processed: {stats.get('total_chunks', 0)} chunks created", flush=True)
+        print(f"*Document loaded: {metadata['file_name']} ({metadata['file_type']})*", flush=True)
         
-        # Create RAG pipeline
+        # Initialize document processor for chunking
+        doc_processor = DocumentProcessor()
+        
+        # Create chunks from document content
+        print("*Processing document chunks...*", flush=True)
+        chunks = doc_processor.create_chunks(content, metadata)
+        
+        if not chunks:
+            print("*Warning: No chunks could be created from the document.*", flush=True)
+            return
+        
+        print(f"*Document processed: {len(chunks)} chunks created*", flush=True)
+        
+        # Create RAG pipeline with vector embeddings
+        print("*Generating vector embeddings...*", flush=True)
         rag = RAGPipeline()
         rag.add_document(chunks)
         
-        # Find relevant chunks for the query
+        # Get pipeline statistics
+        pipeline_stats = rag.get_pipeline_statistics()
+        print(f"*Vector embeddings created: {pipeline_stats.get('embedding_model', 'Unknown')} model*", flush=True)
+        
+        # Detect query type for template selection
+        query_type = rag.detect_query_type(query)
+        print(f"*Query type detected: {query_type}*", flush=True)
+        
+        # Find relevant chunks using semantic search
+        print("*Performing semantic search...*", flush=True)
         relevant_chunks = rag.find_relevant_chunks(query, top_k=3)
         
-        # Create context-aware prompt
-        enhanced_query = rag.create_context_prompt(query, relevant_chunks)
+        # Get similarity scores for source attribution
+        similarity_scores = rag.get_similarity_scores(query, top_k=3)
+        if similarity_scores:
+            print("*Found relevant content using semantic search*", flush=True)
         
-        # Process with AI
+        # Create enhanced context-aware prompt with dynamic templates
+        enhanced_query = rag.create_context_prompt(query, relevant_chunks, template_name=query_type)
+        
+        # Process with AI and collect response
+        ai_response = ""
         for word in runData(enhanced_query, model):
             print(word, end='', flush=True)
+            ai_response += word
+        
+        # Add conversation turn to history for future context
+        rag.add_conversation_turn(query, ai_response)
+        
+        # Create processing result with metrics and sources
+        processing_result = token_tracker.create_processing_result(
+            response=ai_response,
+            input_text=enhanced_query,
+            start_time=start_time,
+            chunks=relevant_chunks,
+            similarity_scores=similarity_scores,
+            query_type=query_type,
+            template_used=query_type,
+            model_name=model
+        )
+        
+        # Print enhanced metrics
+        metrics = token_tracker.format_metrics_for_display(processing_result.metrics)
+        print(f"\n*METRICS: {metrics['total_tokens']} tokens • {metrics['latency']} • {len(processing_result.sources)} sources*", flush=True)
+        
+        # Print source information
+        if processing_result.sources:
+            sources = token_tracker.format_sources_for_display(processing_result.sources)
+            print("*SOURCES USED:*", flush=True)
+            for i, source in enumerate(sources, 1):
+                print(f"*{i}. Score: {source['score']} • Page: {source.get('page', 'N/A')} • {source['content'][:50]}...*", flush=True)
             
     except Exception as e:
-        logger.error(f"Error in enhanced PDF processing: {e}")
-        print(f"Error processing PDF: {str(e)}", flush=True)
+        logger.error(f"Error in enhanced RAG processing: {e}")
+        print(f"Error in enhanced RAG processing: {str(e)}", flush=True)
+
+def process_document_with_simple_extraction(file_path: str, query: str, model: str):
+    """Process document with simple text extraction (basic fallback method)"""
+    try:
+        # Initialize token tracker
+        token_tracker = TokenTracker(model)
+        start_time = token_tracker.start_tracking()
+        
+        # Initialize document loader
+        loader = DocumentLoader()
+        
+        # Load document content
+        doc_data = loader.load_document(file_path)
+        content = doc_data['content']
+        
+        if not content or content.strip() == "":
+            print("Warning: No content could be extracted from the document.", flush=True)
+            return
+        
+        # Simple text processing
+        enhanced_query = f"DOCUMENT TEXT:\n{content}\n\nUSER QUERY:\n{query}"
+        
+        # Process with AI and collect response
+        ai_response = ""
+        for word in runData(enhanced_query, model):
+            print(word, end='', flush=True)
+            ai_response += word
+        
+        # Create processing result with metrics
+        processing_result = token_tracker.create_processing_result(
+            response=ai_response,
+            input_text=enhanced_query,
+            start_time=start_time,
+            model_name=model
+        )
+        
+        # Print metrics
+        metrics = token_tracker.format_metrics_for_display(processing_result.metrics)
+        print(f"\n*METRICS: {metrics['total_tokens']} tokens • {metrics['latency']}*", flush=True)
+            
+    except Exception as e:
+        logger.error(f"Error in simple document processing: {e}")
+        print(f"Error in simple document processing: {str(e)}", flush=True)
 
 def main():
     try:
         parser = argparse.ArgumentParser(description="Process AI Query with optional file input.")
         parser.add_argument('--query', type=str, required=True, help="The user query text")
         parser.add_argument('--model', type=str, required=True, help="The AI model to use")
-        parser.add_argument('--file', type=str, default="", help="Optional file path (PDF or image)")
-        parser.add_argument('--use-chunking', action='store_true', help="Use enhanced document chunking for PDFs")
+        parser.add_argument('--file', type=str, default="", help="Optional file path (PDF, TXT, MD, CSV, JSON, DOCX, DOC, or image)")
+        parser.add_argument('--use-semantic-search', action='store_true', help="Use semantic search with vector embeddings")
         
         args = parser.parse_args()
         
@@ -85,37 +191,46 @@ def main():
 
         if file_path:
             ext = os.path.splitext(file_path)[1].lower()
-            if ext == ".pdf":
-                if args.use_chunking:
-                    # Use enhanced chunking and RAG pipeline
-                    process_pdf_with_chunking(file_path, query, model)
+            
+            # Document types that support semantic search
+            document_types = ['.pdf', '.txt', '.md', '.csv', '.json', '.docx', '.doc']
+            image_types = ['.png', '.jpg', '.jpeg', '.bmp', '.gif']
+            
+            if ext in document_types:
+                if args.use_semantic_search:
+                    # Use enhanced RAG processing with semantic search
+                    process_document_with_enhanced_rag(file_path, query, model)
                 else:
-                    # Use legacy PDF processing
-                    try:
-                        # Extract PDF text and prepend it to the query
-                        pdf_text = pdf_tool.extract_text_from_pdf(file_path)
-                        if pdf_text:
-                            query = "PDF TEXT:\n" + pdf_text + "\nUSER QUERY:\n" + query
-                        else:
-                            print("Warning: No text could be extracted from the PDF.", flush=True)
-                    except Exception as e:
-                        print(f"Error processing PDF: {str(e)}", flush=True)
-                        return
+                    # Use simple document processing
+                    process_document_with_simple_extraction(file_path, query, model)
                     
-                    # Process as a text-based query
-                    for word in runData(query, model):
-                        print(word, end='', flush=True)
-                    
-            elif ext in [".png", ".jpg", ".jpeg", ".bmp", ".gif"]:
+            elif ext in image_types:
                 # Process as an image-based query
                 for word in runImage(query, file_path):
                     print(word, end='', flush=True)
             else:
                 print("Unsupported file type.", flush=True)
         else:
-            # No file provided; process as a normal text query.
+            # No file provided; process as a normal text query with token tracking.
+            token_tracker = TokenTracker(model)
+            start_time = token_tracker.start_tracking()
+            
+            ai_response = ""
             for word in runData(query, model):
                 print(word, end='', flush=True)
+                ai_response += word
+            
+            # Create processing result with metrics
+            processing_result = token_tracker.create_processing_result(
+                response=ai_response,
+                input_text=query,
+                start_time=start_time,
+                model_name=model
+            )
+            
+            # Print metrics
+            metrics = token_tracker.format_metrics_for_display(processing_result.metrics)
+            print(f"\n*METRICS: {metrics['total_tokens']} tokens • {metrics['latency']}*", flush=True)
                 
     except ValueError as e:
         print(f"Validation error: {str(e)}", flush=True)

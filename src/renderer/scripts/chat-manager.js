@@ -4,11 +4,17 @@ class ChatManager {
     this.ipcHandlers = ipcHandlers;
     this.selectedFilePath = "";
     this.isProcessing = false;
+    this.observabilitySettings = {
+      showTokens: true,
+      showSources: true,
+      showDetails: false
+    };
     this.init();
   }
 
   init() {
     this.setupEventHandlers();
+    this.loadObservabilitySettings();
   }
 
   setupEventHandlers() {
@@ -31,6 +37,9 @@ class ChatManager {
     this.uiManager.downloadButton.addEventListener('click', async () => {
       await this.handleModelDownload();
     });
+    
+    // Observability settings handling
+    this.setupObservabilityHandlers();
   }
 
   async handleSubmit() {
@@ -104,10 +113,16 @@ class ChatManager {
         const fileName = filePath.split(/[\\/]/).pop(); // Get filename from path
         const fileExt = fileName.split('.').pop().toLowerCase();
         
-        if (fileExt === 'pdf') {
-          this.showUserFeedback(`PDF selected: ${fileName} (Enhanced processing enabled)`, "success");
+        // Document types that support semantic search
+        const documentTypes = ['pdf', 'txt', 'md', 'csv', 'json', 'docx', 'doc'];
+        const imageTypes = ['png', 'jpg', 'jpeg', 'bmp', 'gif'];
+        
+        if (documentTypes.includes(fileExt)) {
+          this.showUserFeedback(`Document selected: ${fileName} (Semantic search enabled)`, "success");
+        } else if (imageTypes.includes(fileExt)) {
+          this.showUserFeedback(`Image selected: ${fileName}`, "success");
         } else {
-          this.showUserFeedback(`File selected: ${fileName}`, "success");
+        this.showUserFeedback(`File selected: ${fileName}`, "success");
         }
       }
     } catch (error) {
@@ -264,7 +279,13 @@ class ChatManager {
     
     if (lastChild && lastChild.classList.contains('ai-message')) {
       // Append to existing AI message
-      lastChild.querySelector('.message-content').textContent += data;
+      const messageContent = lastChild.querySelector('.message-content');
+      const currentText = messageContent.innerHTML;
+      const newText = this.formatSystemMessages(currentText + data);
+      messageContent.innerHTML = newText;
+      
+      // Check for metrics and sources in the updated content
+      this.processObservabilityData(newText, lastChild);
     } else {
       // Create new AI message
       const aiMessage = document.createElement('div');
@@ -272,13 +293,166 @@ class ChatManager {
       
       const aiMessageContent = document.createElement('div');
       aiMessageContent.className = 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] p-3 rounded-lg whitespace-pre-wrap break-words max-w-[80%] message-content';
-      aiMessageContent.textContent = data;
+      aiMessageContent.innerHTML = this.formatSystemMessages(data);
       
       aiMessage.appendChild(aiMessageContent);
       this.uiManager.chatWindow.appendChild(aiMessage);
+      
+      // Check for metrics and sources in the new content
+      this.processObservabilityData(data, aiMessage);
     }
     
     this.uiManager.autoScroll();
+  }
+  
+  processObservabilityData(content, messageElement) {
+    // Check if we already have observability displays
+    const existingMetrics = messageElement.querySelector('.metrics-display');
+    const existingSources = messageElement.querySelector('.sources-display');
+    
+    if (existingMetrics && existingSources) {
+      return; // Already processed
+    }
+    
+    // Create metrics display
+    const metricsDisplay = this.createMetricsDisplay(content);
+    if (metricsDisplay && !existingMetrics) {
+      messageElement.insertAdjacentHTML('beforeend', metricsDisplay);
+    }
+    
+    // Create sources display
+    const sourcesDisplay = this.createSourcesDisplay(content);
+    if (sourcesDisplay && !existingSources) {
+      messageElement.insertAdjacentHTML('beforeend', sourcesDisplay);
+    }
+  }
+
+  formatSystemMessages(text) {
+    // Convert *text* to italic styling
+    return text.replace(/\*([^*]+)\*/g, '<em style="font-style: italic; opacity: 0.7;">$1</em>');
+  }
+  
+  setupObservabilityHandlers() {
+    // Token usage toggle
+    const showTokensCheckbox = document.getElementById('show-tokens');
+    if (showTokensCheckbox) {
+      showTokensCheckbox.addEventListener('change', (e) => {
+        this.observabilitySettings.showTokens = e.target.checked;
+        this.saveObservabilitySettings();
+      });
+    }
+    
+    // Source attribution toggle
+    const showSourcesCheckbox = document.getElementById('show-sources');
+    if (showSourcesCheckbox) {
+      showSourcesCheckbox.addEventListener('change', (e) => {
+        this.observabilitySettings.showSources = e.target.checked;
+        this.saveObservabilitySettings();
+      });
+    }
+    
+    // Processing details toggle
+    const showDetailsCheckbox = document.getElementById('show-details');
+    if (showDetailsCheckbox) {
+      showDetailsCheckbox.addEventListener('change', (e) => {
+        this.observabilitySettings.showDetails = e.target.checked;
+        this.saveObservabilitySettings();
+      });
+    }
+  }
+  
+  loadObservabilitySettings() {
+    try {
+      const saved = localStorage.getItem('ace-observability-settings');
+      if (saved) {
+        this.observabilitySettings = { ...this.observabilitySettings, ...JSON.parse(saved) };
+      }
+      
+      // Update UI checkboxes
+      const showTokensCheckbox = document.getElementById('show-tokens');
+      const showSourcesCheckbox = document.getElementById('show-sources');
+      const showDetailsCheckbox = document.getElementById('show-details');
+      
+      if (showTokensCheckbox) showTokensCheckbox.checked = this.observabilitySettings.showTokens;
+      if (showSourcesCheckbox) showSourcesCheckbox.checked = this.observabilitySettings.showSources;
+      if (showDetailsCheckbox) showDetailsCheckbox.checked = this.observabilitySettings.showDetails;
+      
+    } catch (error) {
+      console.error('Error loading observability settings:', error);
+    }
+  }
+  
+  saveObservabilitySettings() {
+    try {
+      localStorage.setItem('ace-observability-settings', JSON.stringify(this.observabilitySettings));
+    } catch (error) {
+      console.error('Error saving observability settings:', error);
+    }
+  }
+  
+  createMetricsDisplay(metricsText) {
+    if (!this.observabilitySettings.showTokens) return '';
+    
+    // Extract metrics from text like "*METRICS: 1,234 tokens • 2.5s • 3 sources*"
+    const metricsMatch = metricsText.match(/\*METRICS: (.*?)\*/);
+    if (!metricsMatch) return '';
+    
+    const metrics = metricsMatch[1];
+    return `
+      <div class="metrics-display bg-[var(--bg-tertiary)] rounded-lg p-3 mt-2 text-sm">
+        <div class="flex items-center space-x-2 text-[var(--accent)]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+          </svg>
+          <span class="font-medium">Metrics:</span>
+          <span class="text-[var(--text-primary)]">${metrics}</span>
+        </div>
+      </div>
+    `;
+  }
+  
+  createSourcesDisplay(sourcesText) {
+    if (!this.observabilitySettings.showSources) return '';
+    
+    // Extract sources from text like "*SOURCES USED:*" followed by source lines
+    const sourcesMatch = sourcesText.match(/\*SOURCES USED:\*([\s\S]*?)(?=\n\n|$)/);
+    if (!sourcesMatch) return '';
+    
+    const sourcesContent = sourcesMatch[1];
+    const sourceLines = sourcesContent.split('\n').filter(line => line.trim().startsWith('*') && line.includes('Score:'));
+    
+    if (sourceLines.length === 0) return '';
+    
+    const sourcesHtml = sourceLines.map(line => {
+      // Extract source info from "*1. Score: 0.856 • Page: 1 • This is the content...*"
+      const match = line.match(/\*(\d+)\. Score: ([\d.]+) • Page: ([\w\s]+) • (.+?)\*/);
+      if (match) {
+        const [, index, score, page, content] = match;
+        return `
+          <div class="source-item bg-[var(--bg-tertiary)] rounded p-2 mb-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-[var(--accent)] font-medium">Source ${index}</span>
+              <span class="text-[var(--text-secondary)]">Score: ${score}</span>
+              <span class="text-[var(--text-secondary)]">Page: ${page}</span>
+            </div>
+            <div class="text-sm text-[var(--text-primary)] mt-1">${content}</div>
+          </div>
+        `;
+      }
+      return '';
+    }).join('');
+    
+    return `
+      <div class="sources-display mt-3">
+        <div class="flex items-center space-x-2 text-[var(--accent)] mb-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+          </svg>
+          <span class="font-medium">Sources Used:</span>
+        </div>
+        ${sourcesHtml}
+      </div>
+    `;
   }
 }
 

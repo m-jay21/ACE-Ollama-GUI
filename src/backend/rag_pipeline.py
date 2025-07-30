@@ -1,103 +1,86 @@
 from typing import List, Dict, Optional
 from document_processor import DocumentChunk
-import json
+from vector_store import VectorStore
+from prompt_builder import PromptBuilder
 import logging
-import re
-from collections import defaultdict
+import os
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 class RAGPipeline:
-    def __init__(self):
-        self.chunks = []
-        self.chunk_index = defaultdict(list)
-        self.chunk_metadata = {}
+    def __init__(self, vector_store_path: str = None):
+        """
+        Initialize RAG pipeline with vector embeddings for semantic search
         
-    def add_document(self, chunks: List[DocumentChunk]):
-        """Add processed chunks to the pipeline"""
-        for chunk in chunks:
-            self.chunks.append(chunk)
-            self.chunk_metadata[chunk.chunk_id] = chunk.metadata
-            
-            # Create simple index for retrieval
-            words = self._tokenize_text(chunk.content.lower())
-            for word in words:
-                if word not in self.chunk_index:
-                    self.chunk_index[word] = []
-                if chunk.chunk_id not in self.chunk_index[word]:
-                    self.chunk_index[word].append(chunk.chunk_id)
+        Args:
+            vector_store_path: Path to save/load vector store
+        """
+        self.vector_store = VectorStore()
+        self.vector_store_path = vector_store_path or "vector_store"
+        self.prompt_builder = PromptBuilder()
         
-        logger.info(f"Added {len(chunks)} chunks to RAG pipeline")
+        # Try to load existing vector store
+        if os.path.exists(self.vector_store_path + ".faiss"):
+            try:
+                self.vector_store.load_index(self.vector_store_path)
+                logger.info("Loaded existing vector store")
+            except Exception as e:
+                logger.warning(f"Could not load existing vector store: {e}")
     
-    def _tokenize_text(self, text: str) -> List[str]:
-        """Tokenize text into words for indexing"""
-        # Remove punctuation and split into words
-        words = re.findall(r'\b\w+\b', text.lower())
-        # Filter out very short words and common stop words
-        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them'}
-        return [word for word in words if len(word) > 2 and word not in stop_words]
+    def add_document(self, chunks: List[DocumentChunk]):
+        """Add document chunks to the vector store"""
+        try:
+            self.vector_store.add_documents(chunks)
+            
+            # Save the updated vector store
+            if self.vector_store_path:
+                self.vector_store.save_index(self.vector_store_path)
+                
+            logger.info(f"Added {len(chunks)} chunks to RAG pipeline")
+        except Exception as e:
+            logger.error(f"Error adding documents to vector store: {e}")
+            raise
     
     def find_relevant_chunks(self, query: str, top_k: int = 3) -> List[DocumentChunk]:
-        """Find most relevant chunks for a query using simple keyword matching"""
-        query_words = self._tokenize_text(query)
+        """
+        Find relevant chunks using semantic search
         
-        if not query_words:
-            # If no meaningful words in query, return first few chunks
-            return self.chunks[:top_k]
-        
-        chunk_scores = defaultdict(int)
-        
-        # Score chunks based on word overlap
-        for word in query_words:
-            if word in self.chunk_index:
-                for chunk_id in self.chunk_index[word]:
-                    chunk_scores[chunk_id] += 1
-        
-        # Sort by relevance score
-        sorted_chunks = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)
-        
-        # Return top chunks
-        relevant_chunks = []
-        for chunk_id, score in sorted_chunks[:top_k]:
-            chunk = next((c for c in self.chunks if c.chunk_id == chunk_id), None)
-            if chunk:
-                relevant_chunks.append(chunk)
-        
-        # If we don't have enough relevant chunks, add some from the beginning
-        if len(relevant_chunks) < top_k:
-            remaining = top_k - len(relevant_chunks)
-            for chunk in self.chunks:
-                if chunk not in relevant_chunks and len(relevant_chunks) < top_k:
-                    relevant_chunks.append(chunk)
-        
-        logger.info(f"Found {len(relevant_chunks)} relevant chunks for query")
-        return relevant_chunks
+        Args:
+            query: Search query
+            top_k: Number of results to return
+            
+        Returns:
+            List of relevant document chunks
+        """
+        try:
+            relevant_chunks = self.vector_store.semantic_search(query, top_k)
+            logger.info(f"Found {len(relevant_chunks)} semantically relevant chunks")
+            return relevant_chunks
+        except Exception as e:
+            logger.error(f"Error in semantic search: {e}")
+            return []
     
-    def create_context_prompt(self, query: str, relevant_chunks: List[DocumentChunk]) -> str:
-        """Create a context-aware prompt from relevant chunks"""
+    def get_similarity_scores(self, query: str, top_k: int = 3) -> List[tuple]:
+        """Get similarity scores for debugging and analysis"""
+        return self.vector_store.get_similarity_scores(query, top_k)
+    
+    def create_context_prompt(self, query: str, relevant_chunks: List[DocumentChunk], template_name: str = None) -> str:
+        """Create an enhanced context-aware prompt using dynamic templates"""
         if not relevant_chunks:
             return query
         
-        context = "DOCUMENT CONTEXT:\n\n"
-        
-        for i, chunk in enumerate(relevant_chunks):
-            # Add metadata if available
-            metadata_info = ""
-            if chunk.metadata.get("page_number"):
-                metadata_info = f" (Page {chunk.metadata['page_number']})"
-            if chunk.metadata.get("section"):
-                metadata_info += f" (Section: {chunk.metadata['section']})"
-            
-            context += f"Section {i+1}{metadata_info}:\n{chunk.content}\n\n"
-        
-        context += f"USER QUERY: {query}\n\n"
-        context += "Please answer the user's query based on the document context provided above. If the context doesn't contain enough information to answer the query, please say so."
-        
-        return context
+        # Use the enhanced prompt builder
+        return self.prompt_builder.build_prompt(
+            query=query,
+            chunks=relevant_chunks,
+            template_name=template_name,
+            include_history=True,
+            include_metadata=True
+        )
     
     def create_enhanced_query(self, original_query: str, chunks: List[DocumentChunk]) -> str:
-        """Create an enhanced query with document context"""
+        """Create an enhanced query with semantic context"""
         if not chunks:
             return original_query
         
@@ -108,7 +91,7 @@ class RAGPipeline:
             summary = chunk.content[:100] + "..." if len(chunk.content) > 100 else chunk.content
             content_summary.append(summary)
         
-        enhanced_query = f"""Based on the following document content:
+        enhanced_query = f"""Based on the following semantically relevant document content:
 
 {' '.join(content_summary)}
 
@@ -120,22 +103,59 @@ Provide a comprehensive answer using the document information provided."""
     
     def get_pipeline_statistics(self) -> Dict:
         """Get statistics about the RAG pipeline"""
-        total_chunks = len(self.chunks)
-        total_words = sum(len(self._tokenize_text(chunk.content)) for chunk in self.chunks)
-        
-        # Count unique words in index
-        unique_words = len(self.chunk_index)
+        vector_stats = self.vector_store.get_statistics()
         
         return {
-            "total_chunks": total_chunks,
-            "total_words": total_words,
-            "unique_indexed_words": unique_words,
-            "average_words_per_chunk": round(total_words / total_chunks, 2) if total_chunks > 0 else 0
+            **vector_stats,
+            "search_method": "semantic_search",
+            "embedding_model": self.vector_store.model_name,
+            "vector_dimension": self.vector_store.dimension,
+            "available_templates": self.prompt_builder.get_available_templates(),
+            "conversation_history_length": len(self.prompt_builder.conversation_history)
         }
     
     def clear_pipeline(self):
-        """Clear all chunks from the pipeline"""
-        self.chunks = []
-        self.chunk_index.clear()
-        self.chunk_metadata.clear()
-        logger.info("RAG pipeline cleared") 
+        """Clear all data from the pipeline"""
+        self.vector_store.clear()
+        
+        # Remove saved files
+        if self.vector_store_path:
+            for ext in [".faiss", ".pkl"]:
+                try:
+                    os.remove(self.vector_store_path + ext)
+                except FileNotFoundError:
+                    pass
+        
+        logger.info("RAG pipeline cleared")
+    
+    def save_pipeline(self, filepath: str = None):
+        """Save the pipeline state"""
+        path = filepath or self.vector_store_path
+        self.vector_store.save_index(path)
+        logger.info(f"RAG pipeline saved to {path}")
+    
+    def load_pipeline(self, filepath: str = None):
+        """Load the pipeline state"""
+        path = filepath or self.vector_store_path
+        self.vector_store.load_index(path)
+        logger.info(f"RAG pipeline loaded from {path}")
+    
+    def add_conversation_turn(self, user_query: str, ai_response: str):
+        """Add a conversation turn to the prompt builder's history"""
+        self.prompt_builder.add_to_conversation_history(user_query, ai_response)
+    
+    def clear_conversation_history(self):
+        """Clear conversation history"""
+        self.prompt_builder.clear_conversation_history()
+    
+    def get_debug_info(self, query: str, chunks: List[DocumentChunk]) -> Dict:
+        """Get debug information about prompt construction"""
+        return self.prompt_builder.create_debug_prompt(query, chunks)
+    
+    def add_custom_template(self, name: str, template: str, variables: Dict = None):
+        """Add a custom prompt template"""
+        self.prompt_builder.add_custom_template(name, template, variables)
+    
+    def detect_query_type(self, query: str) -> str:
+        """Detect the type of query for template selection"""
+        return self.prompt_builder.detect_query_type(query) 

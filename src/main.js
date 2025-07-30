@@ -26,7 +26,7 @@ function getPythonPath() {
     }
   } else {
     // In development, try virtual environment first, then fallback to system
-    const venvPython = path.join(__dirname, 'venv', 'bin', 'python');
+    const venvPython = path.join(__dirname, '..', 'venv', 'bin', 'python');
     if (fs.existsSync(venvPython)) {
       console.log('Using virtual environment Python:', venvPython);
       return venvPython;
@@ -331,7 +331,8 @@ ipcMain.handle('open-file-dialog', async (event) => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
     filters: [
-      { name: 'PDF or Image', extensions: ['pdf', 'png', 'jpg', 'jpeg', 'bmp', 'gif'] },
+      { name: 'Documents', extensions: ['pdf', 'txt', 'md', 'csv', 'json', 'docx', 'doc'] },
+      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'bmp', 'gif'] },
       { name: 'All Files', extensions: ['*'] }
     ],
   });
@@ -363,11 +364,11 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
       scriptArgs.push('--query', query);
       scriptArgs.push('--model', model);
 
-      // If a file was uploaded, pass its validated path and enable enhanced chunking
+      // If a file was uploaded, pass its validated path and enable enhanced processing
       if (filePath) {
         scriptArgs.push('--file', filePath);
-        // Enable enhanced document chunking for better processing
-        scriptArgs.push('--use-chunking');
+        // Enable semantic search with vector embeddings for best results
+        scriptArgs.push('--use-semantic-search');
     }
 
       // Spawn the Python process with timeout
