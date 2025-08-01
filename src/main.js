@@ -536,6 +536,104 @@ ipcMain.handle('get-ai-options', async () => {
   });
 });
 
+// IPC handler for getting model information
+ipcMain.handle('get-model-info', async () => {
+  return new Promise((resolve, reject) => {
+    const scriptPath = getPythonScriptPath('get_model_info.py');
+    console.log('Python script path:', scriptPath);
+    
+    const pythonProcess = spawn(getPythonPath(), [scriptPath]);
+    let data = '';
+    
+    const timeout = setTimeout(() => {
+      pythonProcess.kill('SIGTERM');
+      console.error('get-model-info timeout');
+      resolve([]);
+    }, 30 * 1000);
+
+    pythonProcess.stdout.on('data', (chunk) => {
+      data += chunk;
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      console.error(`get-model-info stderr: ${data}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      clearTimeout(timeout);
+      try {
+        if (!data.trim()) {
+          resolve([]);
+          return;
+        }
+        const modelInfo = JSON.parse(data);
+        resolve(modelInfo);
+      } catch (err) {
+        console.error('Error parsing model info:', err);
+        resolve([]);
+      }
+    });
+
+    pythonProcess.on('error', (err) => {
+      clearTimeout(timeout);
+      console.error('Error spawning Python process for get-model-info:', err);
+      resolve([]);
+    });
+  });
+});
+
+// IPC handler for deleting a model
+ipcMain.handle('delete-model', async (event, modelName) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const validatedModelName = validateModelName(modelName);
+      const scriptPath = getPythonScriptPath('delete_model.py');
+      console.log('Python script path:', scriptPath);
+      
+      const pythonProcess = spawn(getPythonPath(), [scriptPath, validatedModelName]);
+      let data = '';
+      
+      const timeout = setTimeout(() => {
+        pythonProcess.kill('SIGTERM');
+        console.error('delete-model timeout');
+        resolve({ status: 'error', message: 'Delete operation timed out' });
+      }, 60 * 1000);
+
+      pythonProcess.stdout.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        console.error(`delete-model stderr: ${data}`);
+      });
+
+      pythonProcess.on('close', (code) => {
+        clearTimeout(timeout);
+        try {
+          if (!data.trim()) {
+            resolve({ status: 'error', message: 'No response from delete operation' });
+            return;
+          }
+          const result = JSON.parse(data);
+          resolve(result);
+        } catch (err) {
+          console.error('Error parsing delete result:', err);
+          resolve({ status: 'error', message: 'Failed to parse delete result' });
+        }
+      });
+
+      pythonProcess.on('error', (err) => {
+        clearTimeout(timeout);
+        console.error('Error spawning Python process for delete-model:', err);
+        resolve({ status: 'error', message: 'Failed to start delete operation' });
+      });
+    } catch (error) {
+      console.error('Error in delete-model:', error);
+      resolve({ status: 'error', message: error.message });
+    }
+  });
+});
+
 // IPC handler for clearing chat
 ipcMain.handle('clear-chat', async () => {
   return new Promise((resolve, reject) => {
@@ -547,6 +645,187 @@ ipcMain.handle('clear-chat', async () => {
     } catch (error) {
       console.error('Error clearing chat:', error);
       reject(error);
+    }
+  });
+});
+
+// IPC handler for checking system requirements for fine-tuning
+ipcMain.handle('check-system-requirements', async () => {
+  return new Promise((resolve, reject) => {
+    try {
+      const scriptPath = getPythonScriptPath('lightweight_system_check.py');
+      const pythonProcess = spawn(getPythonPath(), [scriptPath]);
+      
+      let data = '';
+      const timeout = setTimeout(() => {
+        pythonProcess.kill('SIGTERM');
+        reject(new Error('System requirements check timeout'));
+      }, 10 * 1000); // Back to 10 seconds since it's lightweight
+
+      pythonProcess.stdout.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        console.error('System requirements check stderr:', data.toString());
+      });
+
+      pythonProcess.on('close', (code) => {
+        clearTimeout(timeout);
+        try {
+          if (code === 0 && data.trim()) {
+            const result = JSON.parse(data);
+            resolve(result);
+          } else {
+            reject(new Error('System requirements check failed'));
+          }
+        } catch (err) {
+          console.error('Error parsing system requirements:', err);
+          reject(err);
+        }
+      });
+
+      pythonProcess.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(new Error(`Failed to check system requirements: ${err.message}`));
+      });
+    } catch (error) {
+      console.error('Error in check-system-requirements:', error);
+      reject(error);
+    }
+  });
+});
+
+// IPC handler for starting fine-tuning
+ipcMain.handle('start-fine-tuning', async (event, args) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const scriptPath = getPythonScriptPath('fine_tuning.py');
+      const scriptDir = path.dirname(scriptPath);
+      const pythonProcess = spawn(getPythonPath(), ['-c', `
+import sys
+import json
+sys.path.append('${scriptDir.replace(/'/g, "\\'")}')
+from fine_tuning import fine_tuning_manager
+
+args = ${JSON.stringify(args)}
+result = fine_tuning_manager.start_fine_tuning(
+    base_model=args['baseModel'],
+    model_name=args['modelName'],
+    learning_rate=args['learningRate'],
+    epochs=args['epochs'],
+    batch_size=args['batchSize'],
+    files=args['files']
+)
+print(json.dumps(result))
+      `]);
+      
+      let data = '';
+      const timeout = setTimeout(() => {
+        pythonProcess.kill('SIGTERM');
+        reject(new Error('Fine-tuning start timeout'));
+      }, 30 * 1000);
+
+      pythonProcess.stdout.on('data', (chunk) => {
+        const output = chunk.toString();
+        data += output;
+        
+        // Check for progress updates
+        const lines = output.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('PROGRESS_UPDATE: ')) {
+            try {
+              const progressData = JSON.parse(line.replace('PROGRESS_UPDATE: ', ''));
+              mainWindow.webContents.send('fine-tuning-progress', progressData);
+            } catch (e) {
+              console.error('Error parsing progress update:', e);
+            }
+          }
+        }
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        console.error('Fine-tuning start stderr:', data.toString());
+      });
+
+      pythonProcess.on('close', (code) => {
+        clearTimeout(timeout);
+        try {
+          if (code === 0 && data.trim()) {
+            const result = JSON.parse(data);
+            resolve(result);
+          } else {
+            reject(new Error('Fine-tuning start failed'));
+          }
+        } catch (err) {
+          console.error('Error parsing fine-tuning result:', err);
+          reject(err);
+        }
+      });
+
+      pythonProcess.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(new Error(`Failed to start fine-tuning: ${err.message}`));
+      });
+    } catch (error) {
+      console.error('Error in start-fine-tuning:', error);
+      reject(error);
+    }
+  });
+});
+
+// IPC handler for exporting fine-tuned model to Ollama
+ipcMain.handle('export-fine-tuned-model', async (event, modelName) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const scriptPath = getPythonScriptPath('fine_tuning.py');
+      const scriptDir = path.dirname(scriptPath);
+      const pythonProcess = spawn(getPythonPath(), ['-c', `
+import sys
+import json
+sys.path.append('${scriptDir.replace(/'/g, "\\'")}')
+from fine_tuning import fine_tuning_manager
+
+result = fine_tuning_manager.export_to_ollama("${modelName}")
+print(json.dumps(result))
+      `]);
+      
+      let data = '';
+      const timeout = setTimeout(() => {
+        pythonProcess.kill('SIGTERM');
+        resolve({ success: false, error: 'Export timeout' });
+      }, 60 * 1000); // 1 minute timeout
+
+      pythonProcess.stdout.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        console.error('Export fine-tuned model stderr:', data.toString());
+      });
+
+      pythonProcess.on('close', (code) => {
+        clearTimeout(timeout);
+        try {
+          if (code === 0 && data.trim()) {
+            const result = JSON.parse(data);
+            resolve(result);
+          } else {
+            resolve({ success: false, error: 'Export failed' });
+          }
+        } catch (err) {
+          console.error('Error parsing export result:', err);
+          resolve({ success: false, error: 'Failed to parse export result' });
+        }
+      });
+
+      pythonProcess.on('error', (err) => {
+        clearTimeout(timeout);
+        resolve({ success: false, error: `Failed to start export: ${err.message}` });
+      });
+    } catch (error) {
+      console.error('Error in export-fine-tuned-model:', error);
+      resolve({ success: false, error: error.message });
     }
   });
 }); 

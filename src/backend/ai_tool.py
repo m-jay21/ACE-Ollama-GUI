@@ -61,6 +61,62 @@ def aiOptions():
         logger.error(f"Error getting AI options: {e}")
         return []
 
+def getModelInfo():
+    """Get detailed information about all installed models"""
+    try:
+        response = ollama.list()
+        models_info = []
+        for model in response["models"]:
+            # Calculate size in GB
+            size_gb = model.get("size", 0) / (1024**3) if model.get("size") else 0
+            # Convert datetime to string for JSON serialization
+            modified_date = model.get("modified_at", "Unknown")
+            if hasattr(modified_date, 'strftime'):
+                modified_date = modified_date.strftime("%Y-%m-%d %H:%M:%S")
+            
+            model_info = {
+                "name": model["model"],  # Use same approach as aiOptions()
+                "size_gb": round(size_gb, 2),
+                "modified": modified_date,
+                "digest": model.get("digest", "Unknown")
+            }
+            models_info.append(model_info)
+        
+        return models_info
+    except Exception as e:
+        logger.error(f"Error getting model info: {e}")
+        return []
+
+def deleteModel(model_name):
+    """Delete a model from Ollama"""
+    try:
+        # Validate model name
+        model_name = validate_model_name(model_name)
+        
+        # Check if model exists
+        installed_models = aiOptions()
+        if model_name not in installed_models:
+            return {"status": "error", "message": f"Model '{model_name}' not found"}
+        
+        # Delete the model
+        result = subprocess.run(
+            ['ollama', 'rm', model_name],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode == 0:
+            return {"status": "success", "message": f"Model '{model_name}' deleted successfully"}
+        else:
+            return {"status": "error", "message": f"Failed to delete model: {result.stderr}"}
+            
+    except subprocess.TimeoutExpired:
+        return {"status": "error", "message": "Delete operation timed out"}
+    except Exception as e:
+        logger.error(f"Error deleting model {model_name}: {e}")
+        return {"status": "error", "message": f"Error deleting model: {str(e)}"}
+
 def cleanAnsi(text):
     #removes any ansi characters and spinning values that ollama outputs
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')

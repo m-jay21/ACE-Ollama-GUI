@@ -43,9 +43,12 @@
 </head>
 <body class="bg-[var(--bg-primary)] text-[var(--text-primary)] font-montserrat h-screen overflow-hidden transition-colors duration-200">
   <!-- Settings Toggle Button -->
-  <div class="absolute top-4 right-4 z-20">
+  <div class="absolute top-4 right-4 z-20 flex space-x-2">
     <button id="toggle-settings" class="bg-[var(--accent)] hover:opacity-90 px-4 py-2 rounded-full transition-all duration-200 transform hover:scale-105 shadow-lg" style="color: white;">
       <span id="toggle-text">Settings</span>
+    </button>
+    <button id="fine-tune-button" class="bg-[var(--bg-tertiary)] hover:opacity-90 text-[var(--accent)] px-4 py-2 rounded-full transition-all duration-200 transform hover:scale-105 shadow-lg">
+      Fine-Tune
     </button>
   </div>
 
@@ -67,7 +70,7 @@
       </div>
 
       <!-- Chat Window -->
-      <div id="chat-window" class="flex-1 overflow-y-auto scrollbar-hide bg-[var(--bg-secondary)] rounded-xl p-4 mb-4 space-y-4">
+      <div id="chat-window" class="flex-1 overflow-y-auto chat-scrollbar bg-[var(--bg-secondary)] rounded-xl p-4 mb-4 space-y-4">
         <div class="flex justify-center items-center h-full" id="empty-state">
           <div class="text-center text-[var(--text-secondary)]">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -119,7 +122,7 @@
         <p class="text-[var(--accent)]">Configure your ACE AI experience</p>
       </div>
       
-      <div class="flex-1 bg-[var(--bg-secondary)] rounded-xl p-6 overflow-y-auto">
+      <div class="flex-1 bg-[var(--bg-secondary)] rounded-xl p-6 overflow-y-auto tab-scrollbar">
         <div class="max-w-md mx-auto">
           <div class="mb-6">
             <h3 class="text-xl font-semibold text-[var(--accent)] mb-4">Model Management</h3>
@@ -143,6 +146,30 @@
             
             <div id="download-response" class="mt-3 bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded-lg p-3 text-sm hidden">
               <!-- Download response will appear here -->
+            </div>
+          </div>
+          
+          <!-- Installed Models Management -->
+          <div class="pt-6 border-t border-[var(--bg-tertiary)]">
+            <h3 class="text-xl font-semibold text-[var(--accent)] mb-4">Installed Models</h3>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-sm text-[var(--text-secondary)]">Manage your installed models</span>
+                <button id="refresh-models" class="bg-[var(--bg-tertiary)] hover:opacity-90 text-[var(--accent)] px-3 py-1 rounded text-sm transition-all duration-200">
+                  Refresh
+                </button>
+              </div>
+              
+              <div id="models-list" class="space-y-2">
+                <!-- Models will be populated here -->
+                <div class="text-center text-[var(--text-secondary)] py-4">
+                  Loading models...
+                </div>
+              </div>
+              
+              <div id="no-models" class="text-center text-[var(--text-secondary)] py-4 hidden">
+                No models installed. Download a model above to get started.
+              </div>
             </div>
           </div>
           
@@ -197,6 +224,231 @@
                   <div class="w-11 h-6 bg-[var(--bg-tertiary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--accent)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent)]"></div>
                 </label>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fine-Tuning Tab -->
+    <div id="fine-tune-tab" class="hidden h-full flex flex-col">
+      <div class="py-6 text-center">
+        <h2 class="text-3xl font-bold gradient-text mb-2">Fine-Tune Your Model</h2>
+        <p class="text-[var(--accent)]">Adapt models to your specific domain using LoRA</p>
+      </div>
+      
+      <div class="flex-1 bg-[var(--bg-secondary)] rounded-xl p-6 overflow-y-auto tab-scrollbar">
+        <div class="max-w-4xl mx-auto">
+          <!-- System Requirements Check -->
+          <div id="system-check" class="mb-8">
+            <h3 class="text-xl font-semibold text-[var(--accent)] mb-4">System Compatibility</h3>
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-4">
+              <div class="flex items-center space-x-3 mb-3">
+                <div id="check-icon" class="w-6 h-6 rounded-full flex items-center justify-center">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+                <span id="check-status" class="font-medium">Checking system requirements...</span>
+              </div>
+              <div id="system-details" class="text-sm text-[var(--text-secondary)] space-y-1">
+                <div>RAM: <span id="ram-info">Checking...</span></div>
+                <div>GPU: <span id="gpu-info">Checking...</span></div>
+                <div>Storage: <span id="storage-info">Checking...</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Capabilities & Limitations -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- What's Possible -->
+            <div class="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+              <h4 class="text-lg font-semibold text-green-400 mb-3 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                What's Possible
+              </h4>
+              <ul class="text-sm text-[var(--text-secondary)] space-y-2">
+                <li class="flex items-start">
+                  <span class="text-green-400 mr-2">•</span>
+                  <span><strong>LoRA fine-tuning</strong> on 7B parameter models</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="text-green-400 mr-2">•</span>
+                  <span><strong>Small datasets</strong> (100-1000 examples)</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="text-green-400 mr-2">•</span>
+                  <span><strong>Domain adaptation</strong> for specific use cases</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="text-green-400 mr-2">•</span>
+                  <span><strong>Compact storage</strong> (~100MB adapter files)</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="text-green-400 mr-2">•</span>
+                  <span><strong>Consumer hardware</strong> (8GB+ RAM)</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Limitations -->
+            <div class="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+              <h4 class="text-lg font-semibold text-red-400 mb-3 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+                Current Limitations
+              </h4>
+              <ul class="text-sm text-[var(--text-secondary)] space-y-2">
+                <li class="flex items-start">
+                  <span class="text-red-400 mr-2">•</span>
+                  <span><strong>No full fine-tuning</strong> (requires 40GB+ VRAM)</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="text-red-400 mr-2">•</span>
+                  <span><strong>Limited to 7B models</strong> (no 13B+ models)</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="text-red-400 mr-2">•</span>
+                  <span><strong>Training time</strong> (2-8 hours typical)</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="text-red-400 mr-2">•</span>
+                  <span><strong>Data quality dependent</strong> (garbage in = garbage out)</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="text-red-400 mr-2">•</span>
+                  <span><strong>No real-time training</strong> (batch process only)</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Fine-Tuning Form -->
+          <div id="fine-tune-form" class="space-y-6">
+            <!-- Step 1: Select Base Model -->
+            <div>
+              <h3 class="text-lg font-semibold mb-3">1. Select Base Model</h3>
+              <div class="bg-[var(--bg-tertiary)] rounded-lg p-4">
+                <select id="base-model-select" class="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] rounded-lg px-4 py-2 mb-3">
+                  <option value="">Choose a model to fine-tune...</option>
+                </select>
+                <p class="text-sm text-[var(--text-secondary)]">
+                  <strong>Recommended:</strong> Use 7B parameter models (llama2:7b, mistral:7b) for best performance on consumer hardware.
+                </p>
+              </div>
+            </div>
+            
+            <!-- Step 2: Upload Training Data -->
+            <div>
+              <h3 class="text-lg font-semibold mb-3">2. Upload Training Data</h3>
+              <div class="bg-[var(--bg-tertiary)] rounded-lg p-4">
+                <div class="border-2 border-dashed border-[var(--accent)] rounded-lg p-6 text-center">
+                  <input type="file" id="training-data-input" multiple accept=".txt,.md,.json,.csv,.docx,.pdf" class="hidden">
+                  <button id="upload-training-data" class="bg-[var(--accent)] text-[var(--bg-primary)] px-6 py-3 rounded-lg font-semibold hover:opacity-90 mb-3">
+                    Choose Training Files
+                  </button>
+                  <p class="text-sm text-[var(--text-secondary)] mb-2">
+                    Upload documents, conversations, or structured data from your domain
+                  </p>
+                  <p class="text-xs text-[var(--text-secondary)]">
+                    <strong>Supported formats:</strong> TXT, MD, JSON, CSV, DOCX, PDF<br>
+                    <strong>Recommended:</strong> 100-1000 high-quality examples
+                  </p>
+                </div>
+                <div id="training-files-list" class="mt-4 space-y-2"></div>
+              </div>
+            </div>
+            
+            <!-- Step 3: Training Parameters -->
+            <div>
+              <h3 class="text-lg font-semibold mb-3">3. Training Parameters</h3>
+              <div class="bg-[var(--bg-tertiary)] rounded-lg p-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium mb-2">Learning Rate</label>
+                    <input type="number" id="learning-rate" value="0.0003" step="0.0001" min="0.0001" max="0.01" class="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] rounded-lg px-3 py-2">
+                    <p class="text-xs text-[var(--text-secondary)] mt-1">Lower = more stable, higher = faster</p>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium mb-2">Epochs</label>
+                    <input type="number" id="epochs" value="3" min="1" max="10" class="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] rounded-lg px-3 py-2">
+                    <p class="text-xs text-[var(--text-secondary)] mt-1">How many times to train on data</p>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium mb-2">Batch Size</label>
+                    <select id="batch-size" class="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] rounded-lg px-3 py-2">
+                      <option value="1">1 (Conservative)</option>
+                      <option value="2" selected>2 (Balanced)</option>
+                      <option value="4">4 (Aggressive)</option>
+                    </select>
+                    <p class="text-xs text-[var(--text-secondary)] mt-1">Higher = faster but more memory</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Step 4: Model Name -->
+            <div>
+              <h3 class="text-lg font-semibold mb-3">4. Fine-Tuned Model Name</h3>
+              <div class="bg-[var(--bg-tertiary)] rounded-lg p-4">
+                <input type="text" id="fine-tuned-model-name" placeholder="my-domain-model" class="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] rounded-lg px-4 py-2 mb-3">
+                <p class="text-sm text-[var(--text-secondary)]">
+                  <strong>Naming convention:</strong> Use lowercase letters, numbers, and hyphens only. 
+                  Example: <code class="bg-[var(--bg-primary)] px-1 rounded">legal-assistant-v1</code>
+                </p>
+              </div>
+            </div>
+            
+            <!-- Start Training Button -->
+            <div class="text-center">
+              <button id="start-fine-tuning" class="bg-[var(--accent)] text-[var(--bg-primary)] py-4 px-8 rounded-lg font-semibold hover:opacity-90 text-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Start Fine-Tuning Process
+              </button>
+              <p class="text-sm text-[var(--text-secondary)] mt-2">
+                This process will take 2-8 hours depending on your data size and hardware
+              </p>
+            </div>
+          </div>
+          
+          <!-- Training Progress -->
+          <div id="training-progress" class="hidden mt-8">
+            <h3 class="text-xl font-semibold text-[var(--accent)] mb-4">Training Progress</h3>
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-6">
+              <div class="mb-4">
+                <div class="flex justify-between items-center mb-2">
+                  <span class="font-medium">Training Progress</span>
+                  <span id="training-progress-percentage" class="text-[var(--accent)] font-semibold">0%</span>
+                </div>
+                <div class="w-full bg-[var(--bg-primary)] rounded-full h-3">
+                  <div id="training-progress-bar" class="bg-[var(--accent)] h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span class="text-[var(--text-secondary)]">Current Epoch:</span>
+                  <span id="current-epoch" class="ml-2 font-medium">-</span>
+                </div>
+                <div>
+                  <span class="text-[var(--text-secondary)]">Time Elapsed:</span>
+                  <span id="time-elapsed" class="ml-2 font-medium">-</span>
+                </div>
+                <div>
+                  <span class="text-[var(--text-secondary)]">Loss:</span>
+                  <span id="current-loss" class="ml-2 font-medium">-</span>
+                </div>
+                <div>
+                  <span class="text-[var(--text-secondary)]">ETA:</span>
+                  <span id="eta" class="ml-2 font-medium">-</span>
+                </div>
+              </div>
+              
+                          <div id="training-log" class="mt-4 p-3 bg-[var(--bg-primary)] rounded-lg max-h-32 overflow-y-auto text-xs font-mono chat-scrollbar">
+              <div class="text-[var(--text-secondary)]">Training log will appear here...</div>
+            </div>
             </div>
           </div>
         </div>
