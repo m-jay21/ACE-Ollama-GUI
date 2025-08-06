@@ -409,7 +409,7 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
         if (code === 0) {
           // Send completion signal to frontend
           event.sender.send('ai-stream-complete');
-          resolve(fullResponse);
+      resolve(fullResponse);
         } else {
           // Send completion signal even on error to clear loading state
           event.sender.send('ai-stream-complete');
