@@ -152,8 +152,10 @@ def downloadModel(model_name):
         layers_downloaded = 0
         total_layers = 0
         current_stage = "initializing"
+        download_speed = 0
+        total_downloaded = 0
         
-        # Stage-based progress mapping
+        # Enhanced stage-based progress mapping with detailed logging
         stage_progress = {
             "initializing": 5,
             "pulling manifest": 10,
@@ -161,6 +163,16 @@ def downloadModel(model_name):
             "verifying": 90,
             "writing manifest": 95,
             "complete": 100
+        }
+        
+        # Detailed stage descriptions for better user feedback
+        stage_descriptions = {
+            "initializing": "Initializing download process...",
+            "pulling manifest": "Fetching model manifest and metadata...",
+            "downloading layers": "Downloading model layers and weights...",
+            "verifying": "Verifying model integrity and checksums...",
+            "writing manifest": "Writing model manifest and finalizing...",
+            "complete": "Model installation completed successfully!"
         }
         
         process = subprocess.Popen(
@@ -189,12 +201,13 @@ def downloadModel(model_name):
             if line:
                 line = line.strip()
                 
-                # Parse different types of Ollama output
+                # Enhanced parsing with detailed logging
                 if "pulling manifest" in line:
                     if current_stage != "pulling manifest":  # Only log once
                         current_stage = "pulling manifest"
                         progress = stage_progress[current_stage]
-                        status = "Pulling model manifest..."
+                        status = stage_descriptions[current_stage]
+                        logger.info(f"DOWNLOAD_STAGE: {current_stage} - {status}")
                     
                 elif "pulling " in line and ":" in line and "%" in line:
                     # Parse layer download: "pulling dde5aa3fc5ff: 100% ▕███████████████████████████████████████████████████████████████▏ 2.0 GB"
@@ -209,47 +222,75 @@ def downloadModel(model_name):
                         # Extract file size if available
                         size_match = re.search(r'(\d+\.?\d*)\s*(GB|MB|KB|B)', line)
                         if size_match:
-                            size = size_match.group(1)
+                            size = float(size_match.group(1))
                             unit = size_match.group(2)
                             file_size = f"{size} {unit}"
+                            
+                            # Calculate download speed and total downloaded
+                            if unit == "GB":
+                                total_downloaded = size
+                            elif unit == "MB":
+                                total_downloaded = size / 1024
+                            elif unit == "KB":
+                                total_downloaded = size / (1024 * 1024)
+                            else:
+                                total_downloaded = size / (1024 * 1024 * 1024)
                         else:
                             file_size = ""
+                            total_downloaded = 0
                         
                         # Calculate overall progress (layers are ~50% of total download)
                         base_progress = stage_progress["downloading layers"]
                         layer_progress_contribution = (layer_progress / 100) * 30  # 30% for layers
                         progress = base_progress + layer_progress_contribution
                         
+                        # Calculate download speed
+                        elapsed = time.time() - start_time
+                        if elapsed > 0:
+                            download_speed = total_downloaded / elapsed  # GB/s
+                        
                         if layer_progress == 100:
                             layers_downloaded += 1
                             status = f"Downloaded layer {layers_downloaded}: {file_size}"
+                            logger.info(f"DOWNLOAD_LAYER_COMPLETE: Layer {layers_downloaded} ({file_size}) completed")
                         else:
-                            status = f"Downloading layer: {file_size} ({layer_progress}%)"
+                            speed_str = f" ({download_speed:.2f} GB/s)" if download_speed > 0 else ""
+                            status = f"Downloading layer: {file_size} ({layer_progress}%){speed_str}"
+                            logger.info(f"DOWNLOAD_PROGRESS: Layer {layer_id} - {layer_progress}% - {file_size}{speed_str}")
                     else:
                         progress = stage_progress[current_stage]
-                        status = "Downloading model layers..."
+                        status = stage_descriptions[current_stage]
                         
                 elif "verifying sha256 digest" in line:
                     current_stage = "verifying"
                     progress = stage_progress[current_stage]
-                    status = "Verifying model integrity..."
+                    status = stage_descriptions[current_stage]
+                    logger.info(f"DOWNLOAD_STAGE: {current_stage} - {status}")
                     
                 elif "writing manifest" in line:
                     current_stage = "writing manifest"
                     progress = stage_progress[current_stage]
-                    status = "Writing model manifest..."
+                    status = stage_descriptions[current_stage]
+                    logger.info(f"DOWNLOAD_STAGE: {current_stage} - {status}")
                     
                 elif "success" in line:
                     current_stage = "complete"
                     progress = stage_progress[current_stage]
-                    status = "Model installed successfully!"
+                    status = stage_descriptions[current_stage]
+                    logger.info(f"DOWNLOAD_STAGE: {current_stage} - {status}")
+                    
+                elif "error" in line.lower() or "failed" in line.lower():
+                    logger.error(f"DOWNLOAD_ERROR: {line}")
+                    status = f"Error: {line}"
                     
                 else:
                     # Default case - use current stage progress
                     progress = stage_progress.get(current_stage, 0)
-                    status = line
+                    status = stage_descriptions.get(current_stage, line)
+                    if line.strip() and not line.startswith("pulling"):
+                        logger.info(f"DOWNLOAD_INFO: {line}")
                 
-                # Time estimate (only show for active downloads)
+                # Enhanced time estimate with more details
                 time_estimate = ""
                 if current_stage == "downloading layers" and progress > 10:
                     elapsed = time.time() - start_time
@@ -263,22 +304,51 @@ def downloadModel(model_name):
                         else:
                             time_estimate = f" (Est. {int(est_remaining)}s left)"
                 
-                print(json.dumps({
+                # Enhanced output with more detailed information
+                output_data = {
                     "status": f"{status}{time_estimate}",
                     "progress": int(progress),
-                    "stage": current_stage
-                }))
+                    "stage": current_stage,
+                    "download_speed": f"{download_speed:.2f} GB/s" if download_speed > 0 else "N/A",
+                    "layers_downloaded": layers_downloaded,
+                    "total_downloaded": f"{total_downloaded:.2f} GB" if total_downloaded > 0 else "N/A"
+                }
+                
+                print(json.dumps(output_data))
                 sys.stdout.flush()
         
         if process.returncode == 0:
-            print(json.dumps({"status": "Model installed successfully!", "progress": 100, "stage": "complete"}))
+            total_time = time.time() - start_time
+            total_time_str = f"{int(total_time // 60)}m {int(total_time % 60)}s" if total_time > 60 else f"{int(total_time)}s"
+            
+            logger.info(f"DOWNLOAD_COMPLETE: Model '{model_name}' installed successfully in {total_time_str}")
+            print(json.dumps({
+                "status": f"Model '{model_name}' installed successfully!",
+                "progress": 100, 
+                "stage": "complete",
+                "total_time": total_time_str,
+                "download_speed": f"{download_speed:.2f} GB/s" if download_speed > 0 else "N/A",
+                "layers_downloaded": layers_downloaded,
+                "total_downloaded": f"{total_downloaded:.2f} GB" if total_downloaded > 0 else "N/A"
+            }))
             sys.stdout.flush()
         else:
-            print(json.dumps({"status": "Cannot be installed", "progress": 0, "stage": "error"}))
+            logger.error(f"DOWNLOAD_FAILED: Model '{model_name}' installation failed with return code {process.returncode}")
+            print(json.dumps({
+                "status": f"Model '{model_name}' installation failed",
+                "progress": 0, 
+                "stage": "error",
+                "error_code": process.returncode
+            }))
             sys.stdout.flush()
     except Exception as e:
-        logger.error(f"Error downloading model {model_name}: {e}")
-        print(json.dumps({"status": "Cannot be installed", "progress": 0, "stage": "error"}))
+        logger.error(f"DOWNLOAD_EXCEPTION: Error downloading model '{model_name}': {e}")
+        print(json.dumps({
+            "status": f"Error downloading model '{model_name}': {str(e)}",
+            "progress": 0, 
+            "stage": "error",
+            "error": str(e)
+        }))
         sys.stdout.flush()
 
 #estimate tokens in a list of messages
@@ -346,6 +416,60 @@ def runData(text, model):
         # Validate inputs
         text = validate_input(text)
         model = validate_model_name(model)
+        
+        # Check if user is asking for concise/brief responses using more dynamic detection
+        concise_patterns = [
+            # Direct requests
+            r'\b(concise|brief|short|summarize|summarise)\b',
+            # Length indicators
+            r'\b(bullet points?|key points?|main points?|essential points?)\b',
+            r'\b(in brief|in short|in summary)\b',
+            r'\b(keep it|make it|keep this|make this)\s+(short|brief|concise)\b',
+            r'\b(not too long|not very long|not detailed)\b',
+            # Question patterns
+            r'\b(can you|please|could you)\s+(briefly|concisely|shortly)\b',
+            r'\b(give me|tell me|explain)\s+(briefly|concisely|in short)\b',
+            # Specific formats
+            r'\b(list|outline|overview)\b',
+            r'\b(just|only|simply)\s+(the|key|main)\b',
+            # Comparative requests
+            r'\b(not\s+too\s+detailed|not\s+very\s+long|keep\s+it\s+simple)\b'
+        ]
+        
+        import re
+        is_concise_request = any(re.search(pattern, text.lower()) for pattern in concise_patterns)
+        
+        # Modify prompt for concise responses only when explicitly requested
+        if is_concise_request:
+            # Extract the actual question by removing concise-related phrases
+            original_question = text
+            
+            # Remove common concise phrases while preserving the core question
+            concise_removals = [
+                r'\b(concise|brief|short|summarize|summarise)\s+', 
+                r'\b(bullet points?|key points?|main points?|essential points?)\s*',
+                r'\b(in brief|in short|in summary)\s*',
+                r'\b(keep it|make it|keep this|make this)\s+(short|brief|concise)\s*',
+                r'\b(not too long|not very long|not detailed)\s*',
+                r'\b(can you|please|could you)\s+(briefly|concisely|shortly)\s*',
+                r'\b(give me|tell me|explain)\s+(briefly|concisely|in short)\s*',
+                r'\b(just|only|simply)\s+(the|key|main)\s*',
+                r'\b(not\s+too\s+detailed|not\s+very\s+long|keep\s+it\s+simple)\s*'
+            ]
+            
+            for pattern in concise_removals:
+                original_question = re.sub(pattern, '', original_question, flags=re.IGNORECASE)
+            
+            # Clean up extra whitespace and punctuation
+            original_question = re.sub(r'\s+', ' ', original_question).strip()
+            original_question = re.sub(r'^\s*[?:]\s*', '', original_question)  # Remove leading ? or :
+            
+            # If we have a meaningful question after cleanup
+            if len(original_question.strip()) > 10:  # Ensure we have a substantial question
+                text = f"Please provide a concise, brief response to: {original_question}. Keep it focused on key points and avoid excessive detail."
+            else:
+                # Fallback if cleanup was too aggressive
+                text = f"Please provide a concise, brief response to: {text}. Keep it focused on key points and avoid excessive detail."
         
         messages_file = get_messages_file_path()
         

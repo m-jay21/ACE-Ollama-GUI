@@ -2,6 +2,7 @@ class UIManager {
   constructor() {
     this.initElements();
     this.isUserScrolling = false;
+    this.uploadedFiles = []; // Initialize uploaded files array
     this.init();
   }
 
@@ -12,6 +13,7 @@ class UIManager {
     this.mainTab = document.getElementById('main-tab');
     this.settingsTab = document.getElementById('settings-tab');
     this.fineTuneTab = document.getElementById('fine-tune-tab');
+    this.dashboardTab = document.getElementById('dashboard-tab');
     this.clearChatButton = document.getElementById('clear-chat');
 
     // Chat elements
@@ -31,12 +33,19 @@ class UIManager {
     this.modelDownloadInput = document.getElementById('model-download-input');
     this.downloadProgress = document.getElementById('download-progress');
     this.progressBar = document.getElementById('progress-bar');
-    this.progressText = document.getElementById('progress-text');
     this.progressPercentage = document.getElementById('progress-percentage');
     this.downloadResponse = document.getElementById('download-response');
+    
+    // Enhanced download progress elements
+    this.downloadStage = document.getElementById('download-stage');
+    this.downloadSpeed = document.getElementById('download-speed');
+    this.layersDownloaded = document.getElementById('layers-downloaded');
+    this.totalDownloaded = document.getElementById('total-downloaded');
+    this.downloadLog = document.getElementById('download-log');
 
     // Fine-tuning elements
     this.fineTuneButton = document.getElementById('fine-tune-button');
+    this.dashboardButton = document.getElementById('dashboard-button');
     this.checkIcon = document.getElementById('check-icon');
     this.checkStatus = document.getElementById('check-status');
     this.ramInfo = document.getElementById('ram-info');
@@ -64,6 +73,9 @@ class UIManager {
     this.refreshModelsButton = document.getElementById('refresh-models');
     this.modelsList = document.getElementById('models-list');
     this.noModelsMessage = document.getElementById('no-models');
+    
+    // File management elements
+    this.clearAllFilesButton = document.getElementById('clear-all-files');
   }
 
   init() {
@@ -71,6 +83,7 @@ class UIManager {
     this.setupInputHandling();
     this.setupTabSwitching();
     this.setupFineTuning();
+    this.setupDashboard();
     this.setupModelManagement();
   }
 
@@ -113,7 +126,7 @@ class UIManager {
   }
 
   toggleTabs() {
-    if (this.settingsTab.classList.contains('hidden') && this.fineTuneTab.classList.contains('hidden')) {
+    if (this.settingsTab.classList.contains('hidden') && this.fineTuneTab.classList.contains('hidden') && this.dashboardTab.classList.contains('hidden')) {
       // Show settings
       this.settingsTab.classList.remove('hidden');
       this.settingsTab.classList.add('flex');
@@ -121,21 +134,28 @@ class UIManager {
       this.mainTab.classList.remove('flex');
       this.fineTuneTab.classList.add('hidden');
       this.fineTuneTab.classList.remove('flex');
+      this.dashboardTab.classList.add('hidden');
+      this.dashboardTab.classList.remove('flex');
       // Update button styles
       this.toggleButton.style.setProperty('background-color', 'var(--bg-tertiary)', 'important');
       this.toggleButton.style.setProperty('color', 'var(--accent)', 'important');
       this.toggleText.textContent = 'Chat';
       this.fineTuneButton.style.setProperty('background-color', 'var(--bg-tertiary)', 'important');
       this.fineTuneButton.style.setProperty('color', 'var(--accent)', 'important');
-      // Hide clear chat button on settings, show fine-tune button
+      this.dashboardButton.style.setProperty('background-color', 'var(--bg-tertiary)', 'important');
+      this.dashboardButton.style.setProperty('color', 'var(--accent)', 'important');
+      // Hide clear chat button on settings, show other buttons
       this.clearChatButton.style.display = 'none';
       this.fineTuneButton.style.display = 'block';
+      this.dashboardButton.style.display = 'block';
     } else {
       // Show chat
       this.settingsTab.classList.add('hidden');
       this.settingsTab.classList.remove('flex');
       this.fineTuneTab.classList.add('hidden');
       this.fineTuneTab.classList.remove('flex');
+      this.dashboardTab.classList.add('hidden');
+      this.dashboardTab.classList.remove('flex');
       this.mainTab.classList.remove('hidden');
       this.mainTab.classList.add('flex');
       // Update button styles
@@ -146,9 +166,12 @@ class UIManager {
       this.toggleText.textContent = 'Settings';
       this.fineTuneButton.style.setProperty('background-color', 'var(--bg-tertiary)', 'important');
       this.fineTuneButton.style.setProperty('color', 'var(--accent)', 'important');
-      // Show clear chat button and fine-tune button on main tab
+      this.dashboardButton.style.setProperty('background-color', 'var(--bg-tertiary)', 'important');
+      this.dashboardButton.style.setProperty('color', 'var(--accent)', 'important');
+      // Show clear chat button and other buttons on main tab
       this.clearChatButton.style.display = 'block';
       this.fineTuneButton.style.display = 'block';
+      this.dashboardButton.style.display = 'block';
     }
   }
 
@@ -202,19 +225,24 @@ class UIManager {
     });
   }
 
-  // Download progress handling
+  // Enhanced download progress handling
   updateDownloadProgress(progress) {
+    console.log('Received download progress:', progress);
+    
     // Update progress bar
     this.progressBar.style.width = `${progress.progress}%`;
-    
-    // Update status text with enhanced information
-    this.progressText.textContent = progress.status;
     
     // Update percentage display
     this.progressPercentage.textContent = `${progress.progress}%`;
     
+    // Update detailed metrics
+    this.downloadStage.textContent = progress.stage || '-';
+    this.downloadSpeed.textContent = progress.download_speed || '-';
+    this.layersDownloaded.textContent = progress.layers_downloaded || '-';
+    this.totalDownloaded.textContent = progress.total_downloaded || '-';
+    
     // Add stage-based styling
-    this.progressBar.className = 'bg-[var(--accent)] h-2.5 rounded-full transition-all duration-300';
+    this.progressBar.className = 'bg-[var(--accent)] h-3 rounded-full transition-all duration-300';
     
     // Color coding based on stage
     if (progress.stage === 'error') {
@@ -227,14 +255,79 @@ class UIManager {
       this.progressBar.classList.add('bg-[var(--accent)]');
     }
 
+    // Add log entry
+    this.addDownloadLogEntry(progress);
+
     // Handle completion
     if (progress.progress === 100 || progress.stage === 'complete') {
-      this.downloadResponse.textContent = "Model installed successfully!";
+      let completionMessage = "Model installed successfully!";
+      
+      // Add completion details if available
+      if (progress.total_time) {
+        completionMessage += ` (${progress.total_time})`;
+      }
+      if (progress.download_speed && progress.download_speed !== 'N/A') {
+        completionMessage += ` | Avg Speed: ${progress.download_speed}`;
+      }
+      
+      this.downloadResponse.textContent = completionMessage;
       this.downloadResponse.classList.remove('hidden');
       this.downloadProgress.classList.add('hidden');
       this.downloadButton.disabled = false;
       this.downloadButton.textContent = "Download";
     }
+    
+    // Handle errors
+    if (progress.stage === 'error') {
+      let errorMessage = progress.status;
+      if (progress.error) {
+        errorMessage += ` | Error: ${progress.error}`;
+      }
+      if (progress.error_code) {
+        errorMessage += ` | Code: ${progress.error_code}`;
+      }
+      this.downloadResponse.textContent = errorMessage;
+      this.downloadResponse.classList.remove('hidden');
+      this.downloadProgress.classList.add('hidden');
+      this.downloadButton.disabled = false;
+      this.downloadButton.textContent = "Download";
+    }
+  }
+
+  addDownloadLogEntry(progress) {
+    const timestamp = new Date().toLocaleTimeString();
+    let logEntry = `[${timestamp}] `;
+    
+    if (progress.stage === 'error') {
+      logEntry += `ERROR: ${progress.status}`;
+      if (progress.error) {
+        logEntry += ` (${progress.error})`;
+      }
+    } else if (progress.stage === 'complete') {
+      logEntry += `COMPLETE: ${progress.status}`;
+      if (progress.total_time) {
+        logEntry += ` (${progress.total_time})`;
+      }
+    } else if (progress.stage === 'downloading layers') {
+      logEntry += `DOWNLOADING: ${progress.status}`;
+    } else {
+      logEntry += `${progress.stage?.toUpperCase()}: ${progress.status}`;
+    }
+    
+    // Add to log
+    const logDiv = document.createElement('div');
+    logDiv.className = 'text-xs';
+    logDiv.textContent = logEntry;
+    
+    // Clear placeholder if it exists
+    if (this.downloadLog.querySelector('.text-[var(--text-secondary)]')) {
+      this.downloadLog.innerHTML = '';
+    }
+    
+    this.downloadLog.appendChild(logDiv);
+    
+    // Auto-scroll to bottom
+    this.downloadLog.scrollTop = this.downloadLog.scrollHeight;
   }
 
   // Reset functions
@@ -293,6 +386,19 @@ class UIManager {
     this.startFineTuning.addEventListener('click', () => {
       this.startFineTuningProcess();
     });
+
+    // Setup clear all files button
+    this.clearAllFilesButton.addEventListener('click', () => {
+      this.clearAllTrainingFiles();
+    });
+  }
+
+  // Dashboard setup
+  setupDashboard() {
+    // Open dashboard tab
+    this.dashboardButton.addEventListener('click', () => {
+      this.openDashboardTab();
+    });
   }
 
   openFineTuneTab() {
@@ -317,6 +423,37 @@ class UIManager {
     
     // Check system requirements when tab opens
     this.checkSystemRequirements();
+  }
+
+  openDashboardTab() {
+    // Hide all tabs
+    this.mainTab.classList.add('hidden');
+    this.mainTab.classList.remove('flex');
+    this.settingsTab.classList.add('hidden');
+    this.settingsTab.classList.remove('flex');
+    this.fineTuneTab.classList.add('hidden');
+    this.fineTuneTab.classList.remove('flex');
+    this.dashboardTab.classList.remove('hidden');
+    this.dashboardTab.classList.add('flex');
+    
+    // Update button styles
+    this.toggleButton.style.setProperty('background-color', 'var(--bg-tertiary)', 'important');
+    this.toggleButton.style.setProperty('color', 'var(--accent)', 'important');
+    this.toggleText.textContent = 'Chat';
+    this.fineTuneButton.style.setProperty('background-color', 'var(--bg-tertiary)', 'important');
+    this.fineTuneButton.style.setProperty('color', 'var(--accent)', 'important');
+    this.dashboardButton.style.setProperty('background-color', 'var(--accent)', 'important');
+    this.dashboardButton.style.setProperty('color', 'white', 'important');
+    
+    // Hide clear chat button and other buttons on dashboard tab
+    this.clearChatButton.style.display = 'none';
+    this.fineTuneButton.style.display = 'none';
+    this.dashboardButton.style.display = 'none';
+    
+    // Initialize dashboard if dashboard manager exists
+    if (window.dashboardManager) {
+      window.dashboardManager.openDashboard();
+    }
   }
 
   async checkSystemRequirements() {
@@ -399,6 +536,11 @@ class UIManager {
     const capabilities = [];
     const limitations = [];
 
+    // Architecture explanation
+    capabilities.push('<strong>Hybrid Architecture</strong> (Ollama for chat, Hugging Face for training)');
+    capabilities.push('<strong>Seamless Integration</strong> (fine-tuned models work in chat immediately)');
+    capabilities.push('<strong>LoRA Efficiency</strong> (parameter-efficient fine-tuning)');
+
     // RAM-based capabilities
     if (requirements.ram_gb >= 32) {
       capabilities.push('<strong>High-performance fine-tuning</strong> (32GB+ RAM available)');
@@ -432,9 +574,9 @@ class UIManager {
 
     // Universal capabilities (if system can fine-tune)
     if (requirements.can_fine_tune) {
-      capabilities.push('<strong>LoRA fine-tuning</strong> on 7B parameter models');
-      capabilities.push('<strong>Domain adaptation</strong> for specific use cases');
+      capabilities.push('<strong>Supported Models</strong> (phi3:mini, mistral:7b, llama2:7b, codellama:7b)');
       capabilities.push('<strong>Compact storage</strong> (~100MB adapter files)');
+      capabilities.push('<strong>Domain adaptation</strong> for specific use cases');
     }
 
     // Universal limitations
@@ -442,6 +584,7 @@ class UIManager {
     limitations.push('<strong>Limited to 7B models</strong> (no 13B+ models)');
     limitations.push('<strong>Data quality dependent</strong> (garbage in = garbage out)');
     limitations.push('<strong>No real-time training</strong> (batch process only)');
+    limitations.push('<strong>Internet required</strong> (for Hugging Face model downloads)');
 
     // Render capabilities
     capabilities.forEach(capability => {
@@ -478,7 +621,12 @@ class UIManager {
       if (models.length > 0 && !existingNote) {
         const note = document.createElement('p');
         note.className = 'text-xs text-[var(--text-secondary)] mt-2 model-compatibility-note';
-        note.textContent = 'Note: All models can be fine-tuned, but smaller models (3B) will be faster than larger ones (7B+).';
+        note.innerHTML = `
+          <strong>Recommended for testing:</strong> phi3:mini<br>
+          <strong>Best performance:</strong> mistral:7b<br>
+          <strong>Requires authentication:</strong> llama2:7b, codellama:7b<br>
+          <em>Note: We use Hugging Face models for training, but check Ollama availability first.</em>
+        `;
         this.baseModelSelect.parentNode.appendChild(note);
       }
     } catch (error) {
@@ -487,8 +635,20 @@ class UIManager {
   }
 
   handleTrainingFiles(files) {
+    // Store files in a class property for removal
+    this.uploadedFiles = Array.from(files);
+    this.renderTrainingFilesList();
+  }
+
+  renderTrainingFilesList() {
     this.trainingFilesList.innerHTML = '';
-    Array.from(files).forEach(file => {
+    
+    if (!this.uploadedFiles || this.uploadedFiles.length === 0) {
+      this.trainingFilesList.innerHTML = '<p class="text-sm text-[var(--text-secondary)] text-center py-2">No files uploaded</p>';
+      return;
+    }
+
+    this.uploadedFiles.forEach((file, index) => {
       const fileItem = document.createElement('div');
       fileItem.className = 'flex items-center justify-between p-2 bg-[var(--bg-primary)] rounded';
       
@@ -498,14 +658,41 @@ class UIManager {
       const sizeDisplay = sizeInMB < 0.01 ? `${(sizeInBytes / 1024).toFixed(2)}KB` : `${sizeInMB.toFixed(2)}MB`;
       
       fileItem.innerHTML = `
-        <span class="text-sm">${file.name}</span>
-        <span class="text-xs text-[var(--text-secondary)]">${sizeDisplay}</span>
+        <div class="flex items-center space-x-2">
+          <span class="text-sm">${file.name}</span>
+          <span class="text-xs text-[var(--text-secondary)]">${sizeDisplay}</span>
+        </div>
+        <button class="remove-file-btn text-red-500 hover:text-red-700 transition-colors duration-200" data-index="${index}">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       `;
+      
+      // Add click handler for remove button
+      const removeBtn = fileItem.querySelector('.remove-file-btn');
+      removeBtn.addEventListener('click', () => this.removeTrainingFile(index));
+      
       this.trainingFilesList.appendChild(fileItem);
       
       // Debug log
       console.log(`File: ${file.name}, Size: ${sizeInBytes} bytes (${sizeDisplay})`);
     });
+  }
+
+  removeTrainingFile(index) {
+    if (this.uploadedFiles && this.uploadedFiles[index]) {
+      const removedFile = this.uploadedFiles[index];
+      this.uploadedFiles.splice(index, 1);
+      console.log(`Removed file: ${removedFile.name}`);
+      this.renderTrainingFilesList();
+    }
+  }
+
+  clearAllTrainingFiles() {
+    this.uploadedFiles = [];
+    this.renderTrainingFilesList();
+    console.log('All training files cleared');
   }
 
   async startFineTuningProcess() {
@@ -514,7 +701,7 @@ class UIManager {
     const learningRate = parseFloat(this.learningRate.value);
     const epochs = parseInt(this.epochs.value);
     const batchSize = parseInt(this.batchSize.value);
-    const files = this.trainingDataInput.files;
+    const files = this.uploadedFiles || [];
 
     if (!baseModel || !modelName || !files.length) {
       alert('Please fill in all required fields and upload training data.');

@@ -4,6 +4,9 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const http = require('http');
 
+// Global variable to store the main window reference
+let mainWindow = null;
+
 // Helper function to get the correct path for Python scripts
 function getPythonScriptPath(scriptName) {
   if (app.isPackaged) {
@@ -261,6 +264,7 @@ function createWindow() {
 
   // Load your index.html file from renderer directory
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  mainWindow = win; // Store the window reference globally
 }
 
 app.whenReady().then(async () => {
@@ -374,11 +378,11 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
       // Spawn the Python process with timeout
     const pythonProcess = spawn(getPythonPath(), scriptArgs);
       
-      // Set timeout for the process (5 minutes)
+      // Set timeout for the process (15 minutes for large responses)
       const timeout = setTimeout(() => {
         pythonProcess.kill('SIGTERM');
-        reject(new Error('Request timeout - process took too long'));
-      }, 5 * 60 * 1000);
+        reject(new Error('Request timeout - process took too long. Try asking a more specific question or breaking it into smaller parts.'));
+      }, 15 * 60 * 1000);
 
     let fullResponse = '';
 
@@ -394,11 +398,21 @@ ipcMain.handle('submit-ai-query', async (event, args) => {
       console.error(`stderr: ${data}`);
     });
 
+    // Add a timeout to force completion signal
+    const completionTimeout = setTimeout(() => {
+      event.sender.send('ai-stream-complete');
+    }, 10000); // 10 seconds timeout
+
     pythonProcess.on('close', (code) => {
         clearTimeout(timeout);
+        clearTimeout(completionTimeout);
         if (code === 0) {
-      resolve(fullResponse);
+          // Send completion signal to frontend
+          event.sender.send('ai-stream-complete');
+          resolve(fullResponse);
         } else {
+          // Send completion signal even on error to clear loading state
+          event.sender.send('ai-stream-complete');
           reject(new Error(`Python process exited with code ${code}`));
         }
       });
@@ -722,9 +736,33 @@ print(json.dumps(result))
       
       let data = '';
       const timeout = setTimeout(() => {
-        pythonProcess.kill('SIGTERM');
-        reject(new Error('Fine-tuning start timeout'));
-      }, 30 * 1000);
+        // Send a warning before killing the process
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('fine-tuning-progress', {
+            stage: "Timeout Warning",
+            percentage: 95,
+            message: "Process is taking longer than expected. This might be due to slow internet connection or large model download. Please wait...",
+            warning: true
+          });
+        }
+        
+        // Give it another 2 minutes before killing
+        setTimeout(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('fine-tuning-progress', {
+              stage: "Final Warning",
+              percentage: 98,
+              message: "Process will be terminated in 30 seconds if no progress is made...",
+              warning: true
+            });
+          }
+          
+          setTimeout(() => {
+            pythonProcess.kill('SIGTERM');
+            reject(new Error('Fine-tuning start timeout - model preparation is taking longer than expected. Please try again or check your internet connection.'));
+          }, 30 * 1000); // Final 30 seconds
+        }, 90 * 1000); // 1.5 minutes warning
+      }, 10 * 60 * 1000); // 10 minutes timeout for model preparation
 
       pythonProcess.stdout.on('data', (chunk) => {
         const output = chunk.toString();
@@ -736,7 +774,9 @@ print(json.dumps(result))
           if (line.startsWith('PROGRESS_UPDATE: ')) {
             try {
               const progressData = JSON.parse(line.replace('PROGRESS_UPDATE: ', ''));
-              mainWindow.webContents.send('fine-tuning-progress', progressData);
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('fine-tuning-progress', progressData);
+              }
             } catch (e) {
               console.error('Error parsing progress update:', e);
             }
@@ -745,7 +785,29 @@ print(json.dumps(result))
       });
 
       pythonProcess.stderr.on('data', (data) => {
-        console.error('Fine-tuning start stderr:', data.toString());
+        const stderrData = data.toString();
+        console.error('Fine-tuning start stderr:', stderrData);
+        
+        // Check for specific error patterns and send progress updates
+        if (stderrData.includes('bitsandbytes was compiled without GPU support')) {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('fine-tuning-progress', {
+              stage: "GPU Warning",
+              percentage: 45,
+              message: "GPU quantization not available, using CPU fallback...",
+              warning: true
+            });
+          }
+        } else if (stderrData.includes('CUDA out of memory')) {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('fine-tuning-progress', {
+              stage: "Memory Error",
+              percentage: 45,
+              message: "GPU memory insufficient, switching to CPU mode...",
+              warning: true
+            });
+          }
+        }
       });
 
       pythonProcess.on('close', (code) => {
@@ -755,17 +817,39 @@ print(json.dumps(result))
             const result = JSON.parse(data);
             resolve(result);
           } else {
-            reject(new Error('Fine-tuning start failed'));
+            // Provide more specific error messages based on exit code
+            let errorMessage = 'Fine-tuning start failed';
+            if (code === 1) {
+              errorMessage = 'Model preparation failed - check if the base model is available in Ollama';
+            } else if (code === 2) {
+              errorMessage = 'Training data validation failed - check your uploaded files';
+            } else if (code === 3) {
+              errorMessage = 'System requirements not met - insufficient RAM or storage';
+            } else if (code === 4) {
+              errorMessage = 'Network error - check your internet connection';
+            }
+            reject(new Error(errorMessage));
           }
         } catch (err) {
           console.error('Error parsing fine-tuning result:', err);
-          reject(err);
+          reject(new Error('Failed to parse fine-tuning result - check the console for details'));
         }
       });
 
       pythonProcess.on('error', (err) => {
         clearTimeout(timeout);
-        reject(new Error(`Failed to start fine-tuning: ${err.message}`));
+        let errorMessage = `Failed to start fine-tuning: ${err.message}`;
+        
+        // Provide more specific error messages
+        if (err.message.includes('ENOENT')) {
+          errorMessage = 'Python script not found - please reinstall the application';
+        } else if (err.message.includes('EACCES')) {
+          errorMessage = 'Permission denied - check file permissions';
+        } else if (err.message.includes('ENOMEM')) {
+          errorMessage = 'Insufficient memory to start fine-tuning process';
+        }
+        
+        reject(new Error(errorMessage));
       });
     } catch (error) {
       console.error('Error in start-fine-tuning:', error);
@@ -826,6 +910,53 @@ print(json.dumps(result))
     } catch (error) {
       console.error('Error in export-fine-tuned-model:', error);
       resolve({ success: false, error: error.message });
+    }
+  });
+});
+
+// IPC handler for getting dashboard metrics
+ipcMain.handle('get-dashboard-data', async () => {
+  return new Promise((resolve, reject) => {
+    try {
+      const scriptPath = getPythonScriptPath('dashboard_api.py');
+      const pythonProcess = spawn(getPythonPath(), [scriptPath]);
+      
+      let data = '';
+      const timeout = setTimeout(() => {
+        pythonProcess.kill('SIGTERM');
+        reject(new Error('Dashboard data timeout'));
+      }, 10 * 1000); // 10 seconds timeout
+
+      pythonProcess.stdout.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        console.error('Dashboard API stderr:', data.toString());
+      });
+
+      pythonProcess.on('close', (code) => {
+        clearTimeout(timeout);
+        try {
+          if (code === 0 && data.trim()) {
+            const result = JSON.parse(data);
+            resolve(result);
+          } else {
+            reject(new Error('Failed to get dashboard data'));
+          }
+        } catch (err) {
+          console.error('Error parsing dashboard data:', err);
+          reject(new Error('Failed to parse dashboard data'));
+        }
+      });
+
+      pythonProcess.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(new Error(`Failed to start dashboard API: ${err.message}`));
+      });
+    } catch (error) {
+      console.error('Error in get-dashboard-data:', error);
+      reject(error);
     }
   });
 }); 

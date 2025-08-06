@@ -76,6 +76,15 @@ class ChatManager {
     try {
       // Send query to AI
       await this.ipcHandlers.submitAIQuery(query, model, this.selectedFilePath);
+      // Don't clear loading state here - let the completion signal handle it
+      
+      // Fallback: if completion signal doesn't arrive within 3 seconds, clear loading state
+      setTimeout(() => {
+        if (this.isProcessing) {
+          this.clearLoadingState();
+        }
+      }, 3000);
+      
     } catch (error) {
       console.error("Error in AI query:", error);
       
@@ -93,12 +102,9 @@ class ChatManager {
       }
       
       this.addErrorMessage(errorMessage);
-    } finally {
-      // Re-enable input and hide spinner
-      this.uiManager.setUserInputEnabled(true);
-      this.uiManager.hideSpinner();
-      this.selectedFilePath = "";
-      this.isProcessing = false;
+      
+      // Clear loading state on error
+      this.clearLoadingState();
     }
   }
 
@@ -169,10 +175,16 @@ class ChatManager {
     this.uiManager.downloadButton.disabled = true;
     this.uiManager.downloadButton.textContent = "Downloading...";
     
-    // Reset progress
+    // Reset progress for enhanced interface
     this.uiManager.progressBar.style.width = "0%";
-    this.uiManager.progressText.textContent = "Starting download...";
     this.uiManager.progressPercentage.textContent = "0%";
+    this.uiManager.downloadStage.textContent = "Initializing...";
+    this.uiManager.downloadSpeed.textContent = "-";
+    this.uiManager.layersDownloaded.textContent = "-";
+    this.uiManager.totalDownloaded.textContent = "-";
+    
+    // Clear log
+    this.uiManager.downloadLog.innerHTML = '<div class="text-[var(--text-secondary)]">Download log will appear here...</div>';
     
     try {
       const result = await this.ipcHandlers.downloadModel(modelName);
@@ -208,8 +220,8 @@ class ChatManager {
 
   showDownloadError(message) {
     this.uiManager.progressBar.style.width = "0%";
-    this.uiManager.progressText.textContent = "Download failed";
-    this.uiManager.progressPercentage.textContent = "";
+    this.uiManager.progressPercentage.textContent = "0%";
+    this.uiManager.downloadStage.textContent = "Error";
     this.uiManager.downloadResponse.textContent = message;
     this.uiManager.downloadResponse.classList.remove('hidden');
     this.uiManager.downloadProgress.classList.add('hidden');
@@ -219,8 +231,8 @@ class ChatManager {
 
   showDownloadSuccess() {
     this.uiManager.progressBar.style.width = "100%";
-    this.uiManager.progressText.textContent = "Model installed successfully!";
     this.uiManager.progressPercentage.textContent = "100%";
+    this.uiManager.downloadStage.textContent = "Complete";
     this.uiManager.downloadResponse.textContent = "Model installed successfully!";
     this.uiManager.downloadResponse.classList.remove('hidden');
     this.uiManager.downloadProgress.classList.add('hidden');
@@ -303,6 +315,18 @@ class ChatManager {
     }
     
     this.uiManager.autoScroll();
+  }
+
+  handleAIStreamComplete() {
+    // Stream is complete, ensure loading state is cleared
+    this.clearLoadingState();
+  }
+
+  clearLoadingState() {
+    this.uiManager.setUserInputEnabled(true);
+    this.uiManager.hideSpinner();
+    this.isProcessing = false;
+    this.selectedFilePath = "";
   }
   
   processObservabilityData(content, messageElement) {

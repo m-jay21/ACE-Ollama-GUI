@@ -4,6 +4,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // AI Operations
   getAIOptions: () => ipcRenderer.invoke('get-ai-options'),
+  onAIStream: (callback) => ipcRenderer.on('ai-stream', (event, data) => callback(data)),
+  onAIStreamComplete: (callback) => ipcRenderer.on('ai-stream-complete', callback),
   submitAIQuery: (args) => ipcRenderer.invoke('submit-ai-query', args),
   downloadModel: (modelName) => ipcRenderer.invoke('download-model', modelName),
   
@@ -18,15 +20,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startFineTuning: (args) => ipcRenderer.invoke('start-fine-tuning', args),
   exportFineTunedModel: (modelName) => ipcRenderer.invoke('export-fine-tuned-model', modelName),
   
+  // Dashboard Operations
+  getDashboardData: () => ipcRenderer.invoke('get-dashboard-data'),
+  
   // Model Management Operations
   getModelInfo: () => ipcRenderer.invoke('get-model-info'),
   deleteModel: (modelName) => ipcRenderer.invoke('delete-model', modelName),
   
   // Event Listeners
-  onAIStream: (callback) => {
-    ipcRenderer.on('ai-stream', (event, data) => callback(data));
-  },
-  
   onDownloadProgress: (callback) => {
     ipcRenderer.on('download-progress', (event, progress) => callback(progress));
   },

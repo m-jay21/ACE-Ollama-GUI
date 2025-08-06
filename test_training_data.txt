@@ -1,0 +1,29 @@
+### Instruction: What is the capital of France?
+### Response: The capital of France is Paris.
+
+### Instruction: What is 2 + 2?
+### Response: 2 + 2 equals 4.
+
+### Instruction: What is the largest planet in our solar system?
+### Response: Jupiter is the largest planet in our solar system.
+
+### Instruction: What is the primary color of the sky on a clear day?
+### Response: The sky appears blue on a clear day due to Rayleigh scattering.
+
+### Instruction: How many sides does a triangle have?
+### Response: A triangle has three sides.
+
+### Instruction: What is the chemical symbol for gold?
+### Response: The chemical symbol for gold is Au.
+
+### Instruction: What is the largest ocean on Earth?
+### Response: The Pacific Ocean is the largest ocean on Earth.
+
+### Instruction: What is the square root of 16?
+### Response: The square root of 16 is 4.
+
+### Instruction: What is the main component of the Sun?
+### Response: The Sun is primarily composed of hydrogen gas.
+
+### Instruction: What is the fastest land animal?
+### Response: The cheetah is the fastest land animal, capable of reaching speeds up to 70 mph. 

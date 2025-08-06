@@ -11,6 +11,11 @@ class IPCHandlers {
       this.chatManager.handleAIStream(data);
     });
 
+    // Listen for AI stream completion
+    window.electronAPI.onAIStreamComplete(() => {
+      this.chatManager.handleAIStreamComplete();
+    });
+
     // Listen for model download progress using the secure API
     window.electronAPI.onDownloadProgress((progress) => {
       this.uiManager.updateDownloadProgress(progress);
@@ -72,6 +77,7 @@ class IPCHandlers {
   // Cleanup method to remove listeners
   cleanup() {
     window.electronAPI.removeAllListeners('ai-stream');
+    window.electronAPI.removeAllListeners('ai-stream-complete');
     window.electronAPI.removeAllListeners('download-progress');
   }
 }

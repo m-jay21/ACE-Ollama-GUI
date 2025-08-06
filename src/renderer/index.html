@@ -50,6 +50,9 @@
     <button id="fine-tune-button" class="bg-[var(--bg-tertiary)] hover:opacity-90 text-[var(--accent)] px-4 py-2 rounded-full transition-all duration-200 transform hover:scale-105 shadow-lg">
       Fine-Tune
     </button>
+    <button id="dashboard-button" class="bg-[var(--bg-tertiary)] hover:opacity-90 text-[var(--accent)] px-4 py-2 rounded-full transition-all duration-200 transform hover:scale-105 shadow-lg">
+      Dashboard
+    </button>
   </div>
 
   <!-- Clear Chat Button -->
@@ -113,6 +116,11 @@
           </button>
         </div>
       </div>
+      
+      <!-- Helpful Tips -->
+      <div class="text-center text-sm text-[var(--text-secondary)] mb-4">
+        <p><strong>Tip:</strong> For faster responses on broad topics, try phrases like "briefly", "key points", "not too detailed", or "keep it simple".</p>
+      </div>
     </div>
 
     <!-- Settings Tab -->
@@ -134,13 +142,42 @@
               </button>
             </div>
             
-            <div id="download-progress" class="mt-3 hidden">
-              <div class="w-full bg-[var(--bg-tertiary)] rounded-full h-2.5">
-                <div id="progress-bar" class="bg-[var(--accent)] h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+            <!-- Download Progress -->
+            <div id="download-progress" class="hidden mt-6">
+              <h3 class="text-xl font-semibold text-[var(--accent)] mb-4">Download Progress</h3>
+              <div class="bg-[var(--bg-tertiary)] rounded-lg p-6">
+                <div class="mb-4">
+                  <div class="flex justify-between items-center mb-2">
+                    <span class="font-medium">Download Progress</span>
+                    <span id="progress-percentage" class="text-[var(--accent)] font-semibold">0%</span>
+                  </div>
+                  <div class="w-full bg-[var(--bg-primary)] rounded-full h-3">
+                    <div id="progress-bar" class="bg-[var(--accent)] h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                  </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span class="text-[var(--text-secondary)]">Current Stage:</span>
+                    <span id="download-stage" class="ml-2 font-medium">-</span>
+                  </div>
+                  <div>
+                    <span class="text-[var(--text-secondary)]">Download Speed:</span>
+                    <span id="download-speed" class="ml-2 font-medium">-</span>
+                  </div>
+                  <div>
+                    <span class="text-[var(--text-secondary)]">Layers Downloaded:</span>
+                    <span id="layers-downloaded" class="ml-2 font-medium">-</span>
+                  </div>
+                  <div>
+                    <span class="text-[var(--text-secondary)]">Total Downloaded:</span>
+                    <span id="total-downloaded" class="ml-2 font-medium">-</span>
+                  </div>
+                </div>
+                
+                <div id="download-log" class="mt-4 p-3 bg-[var(--bg-primary)] rounded-lg max-h-32 overflow-y-auto text-xs font-mono chat-scrollbar">
+                  <div class="text-[var(--text-secondary)]">Download log will appear here...</div>
               </div>
-              <div class="flex justify-between items-center mt-1">
-                <p id="progress-text" class="text-sm text-[var(--text-primary)]"></p>
-                <p id="progress-percentage" class="text-sm text-[var(--text-primary)] font-medium"></p>
               </div>
             </div>
             
@@ -359,6 +396,11 @@
                   </p>
                 </div>
                 <div id="training-files-list" class="mt-4 space-y-2"></div>
+                <div class="mt-3 flex justify-end">
+                  <button id="clear-all-files" class="text-sm text-red-500 hover:text-red-700 transition-colors duration-200 px-3 py-1 rounded">
+                    Clear All Files
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -448,7 +490,152 @@
               
                           <div id="training-log" class="mt-4 p-3 bg-[var(--bg-primary)] rounded-lg max-h-32 overflow-y-auto text-xs font-mono chat-scrollbar">
               <div class="text-[var(--text-secondary)]">Training log will appear here...</div>
+              </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard Tab -->
+    <div id="dashboard-tab" class="hidden h-full flex flex-col">
+      <div class="py-6 text-center">
+        <h2 class="text-3xl font-bold gradient-text mb-2">MLOps Dashboard</h2>
+        <p class="text-[var(--accent)]">Real-time AI system monitoring and analytics</p>
+      </div>
+      
+      <div class="flex-1 bg-[var(--bg-secondary)] rounded-xl p-6 overflow-y-auto tab-scrollbar">
+        <div class="max-w-7xl mx-auto">
+          <!-- Key Metrics Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-4 border border-[var(--bg-primary)]">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-[var(--text-secondary)]">Total Queries</p>
+                  <p class="text-2xl font-bold text-[var(--accent)]" id="total-queries">-</p>
+                </div>
+                <div class="text-[var(--accent)]">
+                  <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-4 border border-[var(--bg-primary)]">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-[var(--text-secondary)]">Avg Latency</p>
+                  <p class="text-2xl font-bold text-[var(--accent)]" id="avg-latency">-</p>
+                </div>
+                <div class="text-[var(--accent)]">
+                  <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-4 border border-[var(--bg-primary)]">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-[var(--text-secondary)]">Active Models</p>
+                  <p class="text-2xl font-bold text-[var(--accent)]" id="active-models">-</p>
+                </div>
+                <div class="text-[var(--accent)]">
+                  <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-4 border border-[var(--bg-primary)]">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-[var(--text-secondary)]">System Health</p>
+                  <p class="text-2xl font-bold" id="system-health">-</p>
+                </div>
+                <div class="text-[var(--accent)]">
+                  <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts Section -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Query Volume Chart -->
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-4 border border-[var(--bg-primary)]">
+              <h3 class="text-lg font-semibold text-[var(--accent)] mb-4">Query Volume (Last 24 Hours)</h3>
+              <div class="h-64 flex items-center justify-center">
+                <canvas id="query-volume-chart" class="w-full h-full"></canvas>
+              </div>
+            </div>
+            
+            <!-- Response Time Chart -->
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-4 border border-[var(--bg-primary)]">
+              <h3 class="text-lg font-semibold text-[var(--accent)] mb-4">Average Response Time</h3>
+              <div class="h-64 flex items-center justify-center">
+                <canvas id="response-time-chart" class="w-full h-full"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Resources -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-4 border border-[var(--bg-primary)]">
+              <h4 class="text-sm font-medium text-[var(--text-secondary)] mb-2">CPU Usage</h4>
+              <div class="flex items-center space-x-2">
+                <div class="flex-1 bg-[var(--bg-primary)] rounded-full h-2">
+                  <div class="bg-[var(--accent)] h-2 rounded-full transition-all duration-300" id="cpu-bar" style="width: 0%"></div>
+                </div>
+                <span class="text-sm font-medium text-[var(--accent)]" id="cpu-percent">0%</span>
+              </div>
+            </div>
+            
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-4 border border-[var(--bg-primary)]">
+              <h4 class="text-sm font-medium text-[var(--text-secondary)] mb-2">Memory Usage</h4>
+              <div class="flex items-center space-x-2">
+                <div class="flex-1 bg-[var(--bg-primary)] rounded-full h-2">
+                  <div class="bg-[var(--accent)] h-2 rounded-full transition-all duration-300" id="memory-bar" style="width: 0%"></div>
+                </div>
+                <span class="text-sm font-medium text-[var(--accent)]" id="memory-percent">0%</span>
+              </div>
+              <p class="text-xs text-[var(--text-secondary)] mt-1" id="memory-details">0 GB / 0 GB</p>
+            </div>
+            
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-4 border border-[var(--bg-primary)]">
+              <h4 class="text-sm font-medium text-[var(--text-secondary)] mb-2">Disk Usage</h4>
+              <div class="flex items-center space-x-2">
+                <div class="flex-1 bg-[var(--bg-primary)] rounded-full h-2">
+                  <div class="bg-[var(--accent)] h-2 rounded-full transition-all duration-300" id="disk-bar" style="width: 0%"></div>
+                </div>
+                <span class="text-sm font-medium text-[var(--accent)]" id="disk-percent">0%</span>
+              </div>
+            </div>
+            
+            <div class="bg-[var(--bg-tertiary)] rounded-lg p-4 border border-[var(--bg-primary)]">
+              <h4 class="text-sm font-medium text-[var(--text-secondary)] mb-2">GPU Usage</h4>
+              <div class="flex items-center space-x-2">
+                <div class="flex-1 bg-[var(--bg-primary)] rounded-full h-2">
+                  <div class="bg-[var(--accent)] h-2 rounded-full transition-all duration-300" id="gpu-bar" style="width: 0%"></div>
+                </div>
+                <span class="text-sm font-medium text-[var(--accent)]" id="gpu-percent">N/A</span>
+              </div>
+              <p class="text-xs text-[var(--text-secondary)] mt-1" id="gpu-status">Not Available</p>
+            </div>
+          </div>
+
+          <!-- Recent Activity -->
+          <div class="bg-[var(--bg-tertiary)] rounded-lg p-4 border border-[var(--bg-primary)]">
+            <h3 class="text-lg font-semibold text-[var(--accent)] mb-4">Recent Activity</h3>
+            <div class="space-y-2 max-h-48 overflow-y-auto">
+              <div id="recent-activity" class="text-sm text-[var(--text-secondary)]">
+                <div class="text-center py-4">No recent activity</div>
+              </div>
             </div>
           </div>
         </div>
@@ -456,11 +643,15 @@
     </div>
   </div>
 
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <!-- JavaScript Modules -->
   <script src="scripts/theme-manager.js"></script>
   <script src="scripts/ui-manager.js"></script>
   <script src="scripts/ipc-handlers.js"></script>
   <script src="scripts/chat-manager.js"></script>
+  <script src="scripts/dashboard-manager.js"></script>
   <script src="scripts/main.js"></script>
 </body>
 </html>

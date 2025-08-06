@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 import logging
+import time
 from ai_tool import runData, runImage, validate_input, validate_model_name
 import legacy_pdf_tool as pdf_tool
 from enhanced_pdf_processor import EnhancedPDFProcessor
@@ -9,6 +10,7 @@ from rag_pipeline import RAGPipeline
 from document_loader import DocumentLoader
 from document_processor import DocumentProcessor
 from token_tracker import TokenTracker
+from metrics_collector import get_metrics_collector
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -116,6 +118,22 @@ def process_document_with_enhanced_rag(file_path: str, query: str, model: str):
             model_name=model
         )
         
+        # Record metrics for dashboard (non-blocking)
+        try:
+            get_metrics_collector().record_query({
+                'model_name': model,
+                'input_tokens': processing_result.metrics.input_tokens,
+                'output_tokens': processing_result.metrics.output_tokens,
+                'total_tokens': processing_result.metrics.total_tokens,
+                'latency_ms': processing_result.metrics.latency_ms,
+                'query_type': query_type,
+                'file_processed': True,
+                'success': True
+            })
+        except Exception as e:
+            # Don't let metrics collection interfere with the main query
+            logger.warning(f"Metrics recording failed: {e}")
+        
         # Print enhanced metrics
         metrics = token_tracker.format_metrics_for_display(processing_result.metrics)
         print(f"\n*METRICS: {metrics['total_tokens']} tokens • {metrics['latency']} • {len(processing_result.sources)} sources*", flush=True)
@@ -130,6 +148,7 @@ def process_document_with_enhanced_rag(file_path: str, query: str, model: str):
     except Exception as e:
         logger.error(f"Error in enhanced RAG processing: {e}")
         print(f"Error in enhanced RAG processing: {str(e)}", flush=True)
+        sys.exit(1)
 
 def process_document_with_simple_extraction(file_path: str, query: str, model: str):
     """Process document with simple text extraction (basic fallback method)"""
@@ -166,13 +185,33 @@ def process_document_with_simple_extraction(file_path: str, query: str, model: s
             model_name=model
         )
         
+        # Record metrics for dashboard (non-blocking)
+        try:
+            get_metrics_collector().record_query({
+                'model_name': model,
+                'input_tokens': processing_result.metrics.input_tokens,
+                'output_tokens': processing_result.metrics.output_tokens,
+                'total_tokens': processing_result.metrics.total_tokens,
+                'latency_ms': processing_result.metrics.latency_ms,
+                'query_type': 'document',
+                'file_processed': True,
+                'success': True
+            })
+        except Exception as e:
+            # Don't let metrics collection interfere with the main query
+            logger.warning(f"Metrics recording failed: {e}")
+        
         # Print metrics
         metrics = token_tracker.format_metrics_for_display(processing_result.metrics)
         print(f"\n*METRICS: {metrics['total_tokens']} tokens • {metrics['latency']}*", flush=True)
+        
+        # Ensure clean exit
+        sys.exit(0)
             
     except Exception as e:
         logger.error(f"Error in simple document processing: {e}")
         print(f"Error in simple document processing: {str(e)}", flush=True)
+        sys.exit(1)
 
 def main():
     try:
@@ -208,8 +247,10 @@ def main():
                 # Process as an image-based query
                 for word in runImage(query, file_path):
                     print(word, end='', flush=True)
+                sys.exit(0)
             else:
                 print("Unsupported file type.", flush=True)
+                sys.exit(1)
         else:
             # No file provided; process as a normal text query with token tracking.
             token_tracker = TokenTracker(model)
@@ -228,9 +269,28 @@ def main():
                 model_name=model
             )
             
+            # Record metrics for dashboard (non-blocking)
+            try:
+                get_metrics_collector().record_query({
+                    'model_name': model,
+                    'input_tokens': processing_result.metrics.input_tokens,
+                    'output_tokens': processing_result.metrics.output_tokens,
+                    'total_tokens': processing_result.metrics.total_tokens,
+                    'latency_ms': processing_result.metrics.latency_ms,
+                    'query_type': 'text',
+                    'file_processed': False,
+                    'success': True
+                })
+            except Exception as e:
+                # Don't let metrics collection interfere with the main query
+                logger.warning(f"Metrics recording failed: {e}")
+            
             # Print metrics
             metrics = token_tracker.format_metrics_for_display(processing_result.metrics)
             print(f"\n*METRICS: {metrics['total_tokens']} tokens • {metrics['latency']}*", flush=True)
+            
+            # Ensure clean exit
+            sys.exit(0)
                 
     except ValueError as e:
         print(f"Validation error: {str(e)}", flush=True)
@@ -242,3 +302,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # Ensure we exit cleanly
+    sys.exit(0)

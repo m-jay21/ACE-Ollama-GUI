@@ -16,7 +16,7 @@ def get_ram_gb():
             if result.returncode == 0:
                 lines = result.stdout.strip().split('\n')
                 if len(lines) >= 2:
-                    memory_kb = int(lines[1].strip()) / 1024  # Convert to MB
+                    memory_kb = int(lines[1].strip()) / 1024  # Convert to MBcleacle
                     return memory_kb / 1024  # Convert to GB
                     
         elif platform.system() == "Linux":

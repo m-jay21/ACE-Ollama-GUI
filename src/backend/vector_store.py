@@ -26,8 +26,8 @@ class VectorStore:
         self.chunks = []
         self.chunk_metadata = {}
         
-        # Initialize the model
-        self._load_model()
+        # Don't load the model immediately - lazy load when needed
+        # self._load_model()  # Removed immediate loading
         
     def _load_model(self):
         """Load the sentence transformer model"""
@@ -42,6 +42,10 @@ class VectorStore:
     def generate_embeddings(self, texts: List[str]) -> np.ndarray:
         """Generate embeddings for a list of texts"""
         try:
+            # Ensure model is loaded
+            if self.model is None:
+                self._load_model()
+            
             embeddings = self.model.encode(texts, show_progress_bar=False)
             logger.info(f"Generated embeddings for {len(texts)} texts")
             return embeddings

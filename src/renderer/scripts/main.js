@@ -11,9 +11,13 @@ class ACEApp {
       this.themeManager = new window.ThemeManager();
       this.ipcHandlers = new window.IPCHandlers(null, this.uiManager); // chatManager will be set later
       this.chatManager = new window.ChatManager(this.uiManager, this.ipcHandlers);
+      this.dashboardManager = new window.DashboardManager();
       
       // Update IPC handlers with chat manager reference
       this.ipcHandlers.chatManager = this.chatManager;
+      
+      // Make dashboard manager globally available
+      window.dashboardManager = this.dashboardManager;
 
       // Load initial data
       await this.loadInitialData();
