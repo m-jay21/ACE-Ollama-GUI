@@ -5,11 +5,8 @@
   "main": "src/main.js",
   "devDependencies": {
     "electron": "^29.1.0",
-    "electron-builder": "^26.0.12"
-  },
-  "dependencies": {
-    "electron-updater": "^6.6.2",
-    "node-fetch": "^3.3.2"
+    "electron-builder": "^23.6.0",
+    "electron-updater": "^6.1.7"
   },
   "scripts": {
     "start": "electron .",
@@ -91,6 +88,8 @@
       "!src/data/theMessages.txt",
       "!venv/**/*",
       "!venv/*",
+      "!node_modules/**/*",
+      "!node_modules/*",
       "!dist/**/*",
       "!dist/*",
       "!.git/**/*",
@@ -143,5 +142,8 @@
   "bugs": {
     "url": "https://github.com/m-jay21/ACE-Ollama-GUI/issues"
   },
-  "homepage": "https://github.com/m-jay21/ACE-Ollama-GUI#readme"
+  "homepage": "https://github.com/m-jay21/ACE-Ollama-GUI#readme",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
 }

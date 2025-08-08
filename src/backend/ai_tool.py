@@ -7,6 +7,7 @@ import subprocess
 import time
 import sys
 import logging
+import platform
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,10 +16,19 @@ logger = logging.getLogger(__name__)
 def get_messages_file_path():
     if getattr(sys, 'frozen', False):
         # Running in a bundle (packaged app)
-        base_path = os.path.dirname(sys.executable)
-        messages_path = os.path.join(base_path, 'resources', 'src', 'data', 'theMessages.txt')
+        # Use app data directory instead of executable directory
+        if platform.system() == "Windows":
+            app_data = os.path.join(os.path.expanduser("~"), "AppData", "Local", "ACE-AI")
+        elif platform.system() == "Darwin":  # macOS
+            app_data = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "ACE-AI")
+        else:  # Linux
+            app_data = os.path.join(os.path.expanduser("~"), ".ace_ai")
+        
+        # Ensure the app data directory exists
+        os.makedirs(app_data, exist_ok=True)
+        messages_path = os.path.join(app_data, 'theMessages.txt')
     else:
-        # Running in normal Python environment - go up one level from backend to src, then to data
+        # Development mode - go up one level from backend to src, then to data
         messages_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'theMessages.txt')
     
     # Ensure the data directory exists

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -18,11 +18,18 @@ function getPythonScriptPath(scriptName) {
   }
 }
 
-// Helper function to get Python executable path
+// Helper function to get Python executable path with improved detection
 function getPythonPath() {
   if (app.isPackaged) {
-    // In production (packaged app), always use system Python
-  if (process.platform === 'win32') {
+    // In production (packaged app), try embedded Python first
+    const embeddedPython = path.join(process.resourcesPath, 'python_installer', 'python.exe');
+    if (fs.existsSync(embeddedPython)) {
+      console.log('Using embedded Python:', embeddedPython);
+      return embeddedPython;
+    }
+    
+    // Fallback to system Python
+    if (process.platform === 'win32') {
       return 'python';
     } else {
       return 'python3';
@@ -44,9 +51,18 @@ function getPythonPath() {
   }
 }
 
+// Helper function to get app data directory
+function getAppDataDirectory() {
+  if (process.platform === 'win32') {
+    return path.join(process.env.APPDATA || path.join(process.env.USERPROFILE, 'AppData', 'Local'), 'ACE-AI');
+  } else if (process.platform === 'darwin') {
+    return path.join(process.env.HOME, 'Library', 'Application Support', 'ACE-AI');
+  } else {
+    return path.join(process.env.HOME, '.ace_ai');
+  }
+}
 
-
-// Helper function to validate Python installation
+// Helper function to validate Python installation with better error handling
 async function validatePythonInstallation() {
   return new Promise((resolve, reject) => {
     const pythonPath = getPythonPath();
@@ -80,11 +96,12 @@ async function validatePythonInstallation() {
   });
 }
 
-// Helper function to get the path for theMessages.txt
+// Helper function to get the path for theMessages.txt with improved path handling
 function getMessagesFilePath() {
   if (app.isPackaged) {
-    // In production, use the resources directory
-    return path.join(process.resourcesPath, 'src', 'data', 'theMessages.txt');
+    // In production, use app data directory
+    const appDataDir = getAppDataDirectory();
+    return path.join(appDataDir, 'theMessages.txt');
   } else {
     // In development, use the data directory within src
     return path.join(__dirname, 'data', 'theMessages.txt');
@@ -93,11 +110,8 @@ function getMessagesFilePath() {
 
 // Helper function to get preload script path
 function getPreloadScriptPath() {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'src', 'renderer', 'preload.js');
-  } else {
-    return path.join(__dirname, 'renderer', 'preload.js');
-  }
+  // Use __dirname so Electron can resolve inside app.asar when packaged
+  return path.join(__dirname, 'renderer', 'preload.js');
 }
 
 // Ensure theMessages.txt exists in the correct location
@@ -179,6 +193,90 @@ async function ensureOllamaRunning() {
   } catch (error) {
     console.error('Error ensuring Ollama is running:', error);
     return false;
+  }
+}
+
+// Helper function to check and guide Ollama installation
+async function ensureOllamaAvailable() {
+  if (await isOllamaRunning()) {
+    return true;
+  }
+  
+  // Check if Ollama is installed
+  try {
+    const result = await new Promise((resolve) => {
+      const process = spawn('ollama', ['--version'], { stdio: 'pipe' });
+      let output = '';
+      process.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      process.on('close', (code) => {
+        resolve({ code, output });
+      });
+    });
+    
+    if (result.code === 0) {
+      // Ollama is installed but not running
+      console.log('Ollama is installed but not running');
+      return await ensureOllamaRunning();
+    }
+  } catch (error) {
+    console.log('Ollama not found in PATH');
+  }
+  
+  // Ollama is not installed - show installation guide
+  const result = await dialog.showMessageBox({
+    type: 'info',
+    title: 'Ollama Required',
+    message: 'ACE requires Ollama to be installed and running.',
+    detail: 'Please install Ollama from https://ollama.ai and run "ollama serve"',
+    buttons: ['Open Ollama Website', 'I have Ollama installed', 'Skip for now']
+  });
+  
+  if (result.response === 0) {
+    shell.openExternal('https://ollama.ai');
+  } else if (result.response === 1) {
+    // User says they have Ollama installed - try to start it
+    return await ensureOllamaRunning();
+  }
+  
+  return false;
+}
+
+// Helper function to run post-install checks
+async function runPostInstallChecks() {
+  try {
+    // Check Python installation
+    await validatePythonInstallation();
+    console.log('Python installation validated successfully');
+    
+    // Check Ollama availability
+    await ensureOllamaAvailable();
+    
+    // Ensure theMessages.txt exists when the app starts
+    ensureMessagesFileExists();
+    
+    return true;
+  } catch (error) {
+    console.error('Post-install checks failed:', error);
+    return false;
+  }
+}
+
+// Helper function to handle packaged environment errors
+function handlePackagedEnvironmentErrors(error) {
+  if (app.isPackaged) {
+    // Show user-friendly error for packaged app
+    dialog.showErrorBox(
+      'ACE Setup Required',
+      `Please ensure the following are installed:\n\n` +
+      `• Python 3.8 or later\n` +
+      `• Ollama (from https://ollama.ai)\n\n` +
+      `Error: ${error.message}`
+    );
+  } else {
+    // Development mode - show technical error
+    console.error(error);
   }
 }
 
@@ -269,57 +367,93 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   try {
-    // Validate Python installation
-    await validatePythonInstallation();
-    console.log('Python installation validated successfully');
+    // Setup auto-updater only if the module is available and app is packaged
+    if (app.isPackaged) {
+      try {
+        const { autoUpdater } = require('electron-updater');
+        autoUpdater.checkForUpdatesAndNotify();
+        
+        autoUpdater.on('update-available', () => {
+          dialog.showMessageBox({
+            type: 'info',
+            title: 'Update Available',
+            message: 'A new version of ACE is available.',
+            detail: 'The update will be downloaded and installed automatically.',
+            buttons: ['OK']
+          });
+        });
+        
+        autoUpdater.on('update-downloaded', () => {
+          dialog.showMessageBox({
+            type: 'info',
+            title: 'Update Ready',
+            message: 'Update downloaded successfully.',
+            detail: 'The application will restart to install the update.',
+            buttons: ['Restart Now', 'Later']
+          }).then((result) => {
+            if (result.response === 0) {
+              autoUpdater.quitAndInstall();
+            }
+          });
+        });
+        
+        autoUpdater.on('error', (error) => {
+          console.error('Auto-updater error:', error);
+        });
+      } catch (updaterError) {
+        console.warn('Auto-updater not available:', updaterError.message);
+        // Continue without auto-updater
+      }
+    }
     
-    // Ensure Ollama is running
-    await ensureOllamaRunning();
+    // Run post-install checks
+    const checksPassed = await runPostInstallChecks();
     
-    // Ensure theMessages.txt exists when the app starts
-    ensureMessagesFileExists();
-    createWindow();
+    if (checksPassed) {
+      createWindow();
 
-    // Re-create window on macOS when dock icon is clicked.
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    });
-  } catch (error) {
-    console.error('Python validation failed:', error);
-    
-    // Create a window to show the error
-    const errorWindow = new BrowserWindow({
-      width: 600,
-      height: 400,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        preload: getPreloadScriptPath(),
-      },
-    });
-    
-    errorWindow.loadURL(`data:text/html,
-      <html>
-        <body style="font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5;">
-          <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h2 style="color: #e74c3c; margin-bottom: 20px;">Python Installation Error</h2>
-            <p style="color: #333; margin-bottom: 15px;">ACE requires Python to be installed and accessible from the command line.</p>
-            <p style="color: #666; margin-bottom: 20px;"><strong>Error:</strong> ${error.message}</p>
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
-              <h4 style="margin-top: 0;">To fix this:</h4>
-              <ol style="margin: 0; padding-left: 20px;">
-                <li>Install Python from <a href="https://python.org" target="_blank">python.org</a></li>
-                <li>Make sure Python is added to your system PATH</li>
-                <li>Restart the application</li>
-              </ol>
+      // Re-create window on macOS when dock icon is clicked.
+      app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      });
+    } else {
+      // Show error window for failed checks
+      const errorWindow = new BrowserWindow({
+        width: 600,
+        height: 400,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          preload: getPreloadScriptPath(),
+        },
+      });
+      
+      errorWindow.loadURL(`data:text/html,
+        <html>
+          <body style="font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5;">
+            <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+              <h2 style="color: #e74c3c; margin-bottom: 20px;">Setup Required</h2>
+              <p style="color: #333; margin-bottom: 15px;">ACE requires some dependencies to be installed.</p>
+              <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                <h4 style="margin-top: 0;">To fix this:</h4>
+                <ol style="margin: 0; padding-left: 20px;">
+                  <li>Install Python from <a href="https://python.org" target="_blank">python.org</a></li>
+                  <li>Install Ollama from <a href="https://ollama.ai" target="_blank">ollama.ai</a></li>
+                  <li>Run "ollama serve" in a terminal</li>
+                  <li>Restart the application</li>
+                </ol>
+              </div>
+              <button onclick="window.close()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
+                Close
+              </button>
             </div>
-            <button onclick="window.close()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
-              Close
-            </button>
-          </div>
-        </body>
-      </html>
-    `);
+          </body>
+        </html>
+      `);
+    }
+  } catch (error) {
+    console.error('Application initialization failed:', error);
+    handlePackagedEnvironmentErrors(error);
   }
 });
 
